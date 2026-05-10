@@ -1,6 +1,6 @@
 <?php
 // attendance_reports.php
-require_once '../includes/header.php';
+require_once '../../includes/header.php';
 
 $page_title = 'Attendance Reports';
 
@@ -25,4 +25,4 @@ $sessions = $stmt->fetchAll();
         <button type="submit" class="btn btn-primary">Generate Report</button>
     </form>
 </div>
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once '../../includes/footer.php'; ?>

@@ -59,7 +59,7 @@ require_once '../config/database.php';
                     const response = await fetch('/scanner/process_scan.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ scanned_value: value })
+                        body: JSON.stringify({ rfid_uid: value, scan_method: 'RFID' })
                     });
                     const result = await response.json();
                     document.getElementById('status').textContent = result.message;

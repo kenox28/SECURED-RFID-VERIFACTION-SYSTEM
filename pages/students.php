@@ -20,9 +20,9 @@ if (!empty($search)) {
 }
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page     = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 10;
-$offset = ($page - 1) * $per_page;
+$offset   = ($page - 1) * $per_page;
 
 // Get total count
 $count_sql = "SELECT COUNT(*) as total FROM students $where_clause";
@@ -31,15 +31,12 @@ $stmt->execute($params);
 $total_records = $stmt->fetch()['total'];
 $total_pages = ceil($total_records / $per_page);
 
-// Get students
-$sql = "SELECT * FROM students $where_clause ORDER BY created_at DESC LIMIT ? OFFSET ?";
-$params[] = $per_page;
-$params[] = $offset;
+// ✅ FIX: Cast LIMIT and OFFSET as int directly in query (MariaDB doesn't allow ? for these)
+$sql = "SELECT * FROM students $where_clause ORDER BY created_at DESC LIMIT $per_page OFFSET $offset";
 $stmt = $pdo->prepare($sql);
-$stmt->execute($params);
+$stmt->execute($params); // $params only has search values now, no LIMIT/OFFSET
 $students = $stmt->fetchAll();
 ?>
-
 <!-- Search Form -->
 <div class="row mb-4">
     <div class="col-12">

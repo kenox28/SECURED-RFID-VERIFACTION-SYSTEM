@@ -1,6 +1,7 @@
 <?php
 // attendance_logs.php
-require_once '../includes/header.php';
+require_once '../../includes/header.php';
+require_once '../../config/database.php';
 
 $page_title = 'Attendance Logs';
 
@@ -36,4 +37,4 @@ $logs = $stmt->fetchAll();
         </tbody>
     </table>
 </div>
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once '../../includes/footer.php'; ?>

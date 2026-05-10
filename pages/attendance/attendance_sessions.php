@@ -1,11 +1,11 @@
 <?php
 // attendance_sessions.php
-require_once '../includes/header.php';
+require_once '../../includes/header.php';
 
 $page_title = 'Attendance Sessions';
 
 // Fetch attendance sessions
-$stmt = $pdo->query("SELECT * FROM attendance_sessions ORDER BY created_at DESC");
+$stmt = $pdo->query("SELECT * FROM attendance_sessions WHERE status = 'ACTIVE' ORDER BY created_at DESC");
 $sessions = $stmt->fetchAll();
 
 ?>
@@ -34,10 +34,15 @@ $sessions = $stmt->fetchAll();
                     <td>
                         <a href="edit_session.php?id=<?php echo $session['id']; ?>" class="btn btn-warning btn-sm">Edit</a>
                         <a href="delete_session.php?id=<?php echo $session['id']; ?>" class="btn btn-danger btn-sm">Delete</a>
+                        <?php if ($session['status'] === 'INACTIVE'): ?>
+                            <a href="start_session.php?id=<?php echo $session['id']; ?>" class="btn btn-success btn-sm">Start</a>
+                        <?php else: ?>
+                            <a href="stop_session.php?id=<?php echo $session['id']; ?>" class="btn btn-secondary btn-sm">Stop</a>
+                        <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
 </div>
-<?php require_once '../includes/footer.php'; ?>
+<?php require_once '../../includes/footer.php'; ?>

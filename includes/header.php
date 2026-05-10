@@ -12,7 +12,7 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 // Include database connection
-require_once '../config/database.php';
+require_once dirname(__DIR__) . '/config/database.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -55,6 +55,21 @@ require_once '../config/database.php';
                         <li class="nav-item">
                             <a class="nav-link text-white" href="profile.php">
                                 <i class="bi bi-person-circle"></i> Profile
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="attendance/attendance_logs.php">
+                                <i class="bi bi-clock-history"></i> Attendance Logs
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="attendance/attendance_sessions.php">
+                                <i class="bi bi-calendar-check"></i> Attendance Sessions
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="attendance/attendance_reports.php">
+                                <i class="bi bi-file-earmark-bar-graph"></i> Attendance Reports
                             </a>
                         </li>
                         <li class="nav-item">
