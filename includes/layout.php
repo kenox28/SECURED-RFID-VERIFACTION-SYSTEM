@@ -34,13 +34,13 @@ require_once __DIR__ . '/../config/database.php';
         RFID SYSTEM
     </div>
 
-    <a href="/pages/dashboard.php">Dashboard</a>
-    <a href="/pages/students.php">Students</a>
-    <a href="/pages/register_student.php">Register Student</a>
-    <a href="/pages/profile.php">Profile</a>
-    <a href="/pages/attendance/attendance_logs.php">Attendance Logs</a>
-    <a href="/pages/attendance/attendance_sessions.php">Sessions</a>
-    <a href="/pages/attendance/attendance_reports.php">Reports</a>
+    <a href="/views/dashboard.php">Dashboard</a>
+    <a href="/views/students.php">Students</a>
+    <a href="/views/register_student.php">Register Student</a>
+    <a href="/views/profile.php">Profile</a>
+    <a href="/views/attendance/attendance_logs.php">Attendance Logs</a>
+    <a href="/views/attendance/attendance_sessions.php">Sessions</a>
+    <a href="/views/attendance/attendance_reports.php">Reports</a>
     <a href="/logout.php">Logout</a>
 
 </div>

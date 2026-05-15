@@ -4,7 +4,7 @@ session_start();
 
 // If already logged in, redirect to dashboard
 if (isset($_SESSION['admin_id'])) {
-    header('Location: pages/dashboard.php');
+    header('Location: views/dashboard.php');
     exit();
 }
 
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt = $pdo->prepare("INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)");
             $stmt->execute([$admin['id'], 'Admin logged in']);
 
-            header('Location: pages/dashboard.php');
+            header('Location: views/dashboard.php');
             exit();
         } else {
             $errors[] = 'Invalid username or password';

@@ -63,7 +63,7 @@ rfid-system/
 │   └── footer.php       # Common footer
 ├── js/
 │   └── script.js        # Custom JavaScript
-├── pages/               # Main application pages
+├── views/               # Main application pages
 │   ├── dashboard.php
 │   ├── students.php
 │   ├── register_student.php
@@ -134,12 +134,12 @@ rfid-system/
 The system uses traditional PHP pages rather than REST APIs. Main pages:
 
 - `login.php` - Admin authentication
-- `pages/dashboard.php` - Main dashboard
-- `pages/students.php` - Student listing
-- `pages/register_student.php` - Student registration
-- `pages/edit_student.php` - Student editing
-- `pages/delete_student.php` - Student deletion
-- `pages/profile.php` - Admin profile management
+- `views/dashboard.php` - Main dashboard
+- `views/students.php` - Student listing
+- `views/register_student.php` - Student registration
+- `views/edit_student.php` - Student editing
+- `views/delete_student.php` - Student deletion
+- `views/profile.php` - Admin profile management
 
 ## Development
 
@@ -157,7 +157,7 @@ The system uses traditional PHP pages rather than REST APIs. Main pages:
 - Bootstrap 5 for responsive UI
 
 ### Adding New Features
-1. Create new PHP files in the `pages/` directory
+1. Create new PHP files in the `views/` directory
 2. Include `header.php` and `footer.php` for consistent UI
 3. Add navigation links in `includes/header.php`
 4. Follow the existing code patterns and security practices
