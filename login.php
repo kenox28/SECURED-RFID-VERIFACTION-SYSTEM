@@ -8,7 +8,7 @@ if (isset($_SESSION['admin_id'])) {
     exit();
 }
 
-require_once 'config/database.php';
+require_once 'backend/auth.php';
 
 $errors = [];
 $success = '';
@@ -27,32 +27,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     if (empty($errors)) {
-        // Prepare statement to prevent SQL injection
-        $stmt = $pdo->prepare("SELECT id, username, password, fullname FROM admins WHERE username = ?");
-        $stmt->execute([$username]);
-        $admin = $stmt->fetch();
-
-        if ($admin && password_verify($password, $admin['password'])) {
-            // Login successful
-            $_SESSION['admin_id'] = $admin['id'];
-            $_SESSION['admin_username'] = $admin['username'];
-            $_SESSION['admin_fullname'] = $admin['fullname'];
-
-            // Remember session
-            if ($remember) {
-                // Set cookie for 30 days
-                setcookie('admin_login', session_id(), time() + (30 * 24 * 60 * 60), '/');
-            }
-
-            // Log activity
-            $stmt = $pdo->prepare("INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)");
-            $stmt->execute([$admin['id'], 'Admin logged in']);
-
+        if (admin_login($username, $password, $remember)) {
             header('Location: views/dashboard.php');
             exit();
-        } else {
-            $errors[] = 'Invalid username or password';
         }
+
+        $errors[] = 'Invalid username or password';
     }
 }
 ?>

@@ -3,12 +3,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: /login.php');
-    exit();
-}
-
-require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../backend/auth.php';
+ensure_admin_session();
 
 function render_header(string $page_title = 'RFID System'): void
 {
@@ -21,7 +17,7 @@ function render_header(string $page_title = 'RFID System'): void
     <title><?php echo htmlspecialchars($page_title); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/assets/css/style.css">
 </head>
 <body>
     <div class="app-shell">
@@ -63,7 +59,7 @@ function render_footer(): void
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/script.js"></script>
+    <script src="/assets/js/script.js"></script>
     <script>
         function toggleSidebar() {
             document.querySelector('.sidebar').classList.toggle('collapsed');

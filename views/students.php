@@ -8,29 +8,16 @@ $error = $_SESSION['error'] ?? '';
 unset($_SESSION['success'], $_SESSION['error']);
 
 $search = $_GET['search'] ?? '';
-$where_clause = '';
-$params = [];
-
-if (!empty($search)) {
-    $where_clause = "WHERE student_id LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR course LIKE ?";
-    $search_param = '%' . $search . '%';
-    $params = [$search_param, $search_param, $search_param, $search_param];
-}
-
-$page     = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 10;
-offset   = ($page - 1) * $per_page;
 
-$count_sql = "SELECT COUNT(*) as total FROM students $where_clause";
-$stmt = $pdo->prepare($count_sql);
-$stmt->execute($params);
-$total_records = $stmt->fetch()['total'];
-$total_pages = ceil($total_records / $per_page);
-
-$sql = "SELECT * FROM students $where_clause ORDER BY created_at DESC LIMIT $per_page OFFSET $offset";
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$students = $stmt->fetchAll();
+require_once __DIR__ . '/../backend/admin/student_actions.php';
+$studentData = get_students($search, $page, $per_page);
+$students = $studentData['students'];
+$total_records = $studentData['total_records'];
+$total_pages = $studentData['total_pages'];
+$page = $studentData['current_page'];
+$search = $studentData['search'];
 ?>
 <div class="row mb-4">
     <div class="col-12">
