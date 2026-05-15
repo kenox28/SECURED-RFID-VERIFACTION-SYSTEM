@@ -25,7 +25,7 @@ require_once dirname(__DIR__) . '/config/database.php';
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/style.css?v=1.0.2">
 </head>
 <body>
     <div class="container-fluid">
