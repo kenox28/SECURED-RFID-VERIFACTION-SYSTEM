@@ -32,7 +32,7 @@ try {
     }
 
     $stmt = $pdo->prepare("INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)");
-    $stmt->execute([$_SESSION['admin_id'], "Deleted student: {$student['student_id']} "]);
+    $stmt->execute([$_SESSION['user_id'], "Deleted student: {$student['student_id']} "]);
 
     $_SESSION['success'] = 'Student deleted successfully!';
 } catch (PDOException $e) {

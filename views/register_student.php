@@ -25,7 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
     $middle_name = trim($_POST['middle_name'] ?? '');
-    $course = trim($_POST['course'] ?? '');
     $year_level = trim($_POST['year_level'] ?? '');
     $section = trim($_POST['section'] ?? '');
     $contact_number = trim($_POST['contact_number'] ?? '');
@@ -34,14 +33,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $rfid_uid = trim($_POST['rfid_uid'] ?? '');
     $status = $_POST['status'] ?? STATUS_ACTIVE;
     $department_id = null;
+    $course = '';
+    $selectedDepartmentId = null;
 
     if (is_super_admin()) {
-        $department_id = intval($_POST['department_id'] ?? 0);
-        if ($department_id <= 0) {
+        $selectedDepartmentId = intval($_POST['department_id'] ?? 0);
+        if ($selectedDepartmentId <= 0) {
             $errors[] = 'Department is required for student registration.';
+        } else {
+            foreach ($departments as $dept) {
+                if ($dept['id'] == $selectedDepartmentId) {
+                    $department_id = $selectedDepartmentId;
+                    $course = $dept['department_name'];
+                    break;
+                }
+            }
+            if ($department_id === null) {
+                $errors[] = 'Selected department is invalid.';
+            }
         }
     } else {
         $department_id = $currentDepartmentId;
+        $selectedDepartmentId = $currentDepartmentId;
+        if ($currentDepartment) {
+            $course = $currentDepartment['department_name'];
+        } else {
+            $errors[] = 'Your department is not configured.';
+        }
     }
 
     if (empty($student_id)) $errors[] = 'Student ID is required';
@@ -164,8 +182,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="course" class="form-label">Course *</label>
-                            <input type="text" class="form-control" id="course" name="course" required>
+                            <label for="department_id" class="form-label">Course *</label>
+                            <?php if (is_super_admin()): ?>
+                                <select class="form-select" id="department_id" name="department_id" required>
+                                    <option value="">Select Department</option>
+                                    <?php foreach ($departments as $dept): ?>
+                                        <option value="<?php echo $dept['id']; ?>" <?php echo ($selectedDepartmentId == $dept['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($dept['department_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <select class="form-select" disabled>
+                                    <option value="<?php echo htmlspecialchars($currentDepartmentId); ?>" selected><?php echo htmlspecialchars($currentDepartment['department_name'] ?? ''); ?></option>
+                                </select>
+                                <input type="hidden" name="department_id" value="<?php echo htmlspecialchars($currentDepartmentId); ?>">
+                            <?php endif; ?>
                         </div>
                         <div class="col-md-4 mb-3">
                             <label for="year_level" class="form-label">Year Level *</label>

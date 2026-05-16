@@ -1,105 +1,33 @@
 <?php
 $page_title = 'Dashboard';
 require_once __DIR__ . '/layout.php';
-require_once __DIR__ . '/../backend/admin/manage_admin_actions.php';
-
-/* =========================
-   SAFE DATE FUNCTION
-   (NO ERRORS EVER)
-========================= */
-function safe_date($value, $format = 'M d, Y H:i')
-{
-    if (!empty($value) && strtotime($value)) {
-        return date($format, strtotime($value));
-    }
-    return 'No date';
-}
-
-/* =========================
-   FORM HANDLING
-========================= */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && is_super_admin()) {
-
-    if ($_POST['form_type'] === 'create_admin') {
-
-        $username = trim($_POST['username'] ?? '');
-        $fullname = trim($_POST['fullname'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
-        $role = $_POST['role'] ?? 'admin';
-        $department_id = !empty($_POST['department_id']) ? intval($_POST['department_id']) : null;
-
-        if ($password !== $confirm_password) {
-            $_SESSION['error'] = 'Passwords do not match.';
-        } elseif (!create_admin($username, $fullname, $password, $role, $department_id)) {
-            $_SESSION['error'] = 'Failed to create admin.';
-        } else {
-            $_SESSION['success'] = 'Admin created successfully.';
-        }
-
-        header('Location: dashboard.php#manage-admins');
-        exit();
-    }
-
-    if ($_POST['form_type'] === 'create_department') {
-
-        $department_name = trim($_POST['department_name'] ?? '');
-        $department_code = trim($_POST['department_code'] ?? '');
-
-        if (!create_department($department_name, $department_code)) {
-            $_SESSION['error'] = 'Failed to create department.';
-        } else {
-            $_SESSION['success'] = 'Department created successfully.';
-        }
-
-        header('Location: dashboard.php#manage-departments');
-        exit();
-    }
-}
 
 render_header($page_title);
 
-/* =========================
-   TOTAL STUDENTS
-========================= */
-$total_students = $pdo->query("SELECT COUNT(*) FROM students")->fetchColumn();
+// Get statistics
+$stmt = $pdo->query("SELECT COUNT(*) as total_students FROM students");
+$total_students = $stmt->fetch()['total_students'];
+
+// Total RFID cards (same as total students since each has one)
 $total_rfid = $total_students;
 
-/* =========================
-   RECENT STUDENTS (SAFE - NO created_at REQUIRED)
-========================= */
-$stmt = $pdo->query("
-    SELECT student_id, first_name, last_name 
-    FROM students 
-    ORDER BY id DESC 
-    LIMIT 5
-");
-
-$recent_students = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-/* =========================
-   SUPER ADMIN DATA
-========================= */
-$admins = [];
-$departments = [];
-$activity_logs = [];
-
-if (is_super_admin()) {
-    $admins = get_admins();
-    $departments = get_departments();
-    $activity_logs = get_activity_logs(50);
-}
+// Recently registered students (last 5)
+$stmt = $pdo->query("SELECT student_id, first_name, last_name, created_at FROM students ORDER BY created_at DESC LIMIT 5");
+$recent_students = $stmt->fetchAll();
 ?>
-
-<!-- =========================
-     STATS
-========================= -->
 <div class="row">
     <div class="col-md-6 mb-4">
         <div class="card bg-primary text-white">
             <div class="card-body">
-                <h5>Total Students</h5>
-                <h2><?= $total_students ?></h2>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Students</h5>
+                        <h2><?php echo $total_students; ?></h2>
+                    </div>
+                    <div>
+                        <i class="bi bi-people display-4"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -107,145 +35,86 @@ if (is_super_admin()) {
     <div class="col-md-6 mb-4">
         <div class="card bg-success text-white">
             <div class="card-body">
-                <h5>RFID Cards</h5>
-                <h2><?= $total_rfid ?></h2>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">RFID Cards Registered</h5>
+                        <h2><?php echo $total_rfid; ?></h2>
+                    </div>
+                    <div>
+                        <i class="bi bi-credit-card display-4"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- =========================
-     RECENT STUDENTS
-     (NO DATE REQUIRED)
-========================= -->
-<div class="card">
-    <div class="card-header">
-        <h5>Recently Registered Students</h5>
-    </div>
-
-    <div class="card-body">
-        <?php if (empty($recent_students)): ?>
-            <p>No students found.</p>
-        <?php else: ?>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Name</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    <?php foreach ($recent_students as $student): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($student['student_id']) ?></td>
-                            <td><?= htmlspecialchars($student['first_name'] . ' ' . $student['last_name']) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-
-            </table>
-        <?php endif; ?>
-    </div>
-</div>
-
 <?php if (is_super_admin()): ?>
-
-<!-- =========================
-     ADMINS
-========================= -->
-<div class="card mt-4">
-    <div class="card-header">
-        <h5>Admins</h5>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Manage Admins</h5>
+                    <p class="card-text">Create, edit, and delete system admin accounts.</p>
+                    <a href="manage_admins.php" class="btn btn-primary">Go to Admins</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-secondary">
+                <div class="card-body">
+                    <h5 class="card-title">Departments</h5>
+                    <p class="card-text">Create and manage department entries.</p>
+                    <a href="manage_departments.php" class="btn btn-secondary">Go to Departments</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h5 class="card-title">Activity Logs</h5>
+                    <p class="card-text">View recent system activity and delete old logs.</p>
+                    <a href="activity_logs.php" class="btn btn-info text-white">Go to Logs</a>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="card-body">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Username</th>
-                    <th>Name</th>
-                    <th>Role</th>
-                    <th>Department</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <?php foreach ($admins as $admin): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($admin['username'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($admin['fullname'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($admin['role'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($admin['department_name'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($admin['status'] ?? '') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- =========================
-     DEPARTMENTS (NO created_at USED)
-========================= -->
-<div class="card mt-4">
-    <div class="card-header">
-        <h5>Departments</h5>
-    </div>
-
-    <div class="card-body">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Code</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <?php foreach ($departments as $dept): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($dept['department_name']) ?></td>
-                        <td><?= htmlspecialchars($dept['department_code']) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- =========================
-     ACTIVITY LOGS (SAFE)
-========================= -->
-<div class="card mt-4">
-    <div class="card-header">
-        <h5>Activity Logs</h5>
-    </div>
-
-    <div class="card-body">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Activity</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <?php foreach ($activity_logs as $log): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($log['username'] ?? 'Unknown') ?></td>
-                        <td><?= htmlspecialchars($log['role'] ?? 'Unknown') ?></td>
-                        <td><?= htmlspecialchars($log['activity'] ?? '') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
 <?php endif; ?>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recently Registered Students</h5>
+            </div>
+            <div class="card-body">
+                <?php if (empty($recent_students)): ?>
+                    <p class="text-muted">No students registered yet.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Registered Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($recent_students as $student): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($student['student_id']); ?></td>
+                                        <td><?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></td>
+                                        <td><?php echo date('M d, Y H:i', strtotime($student['created_at'])); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php render_footer(); ?>
