@@ -9,10 +9,17 @@ CREATE TABLE IF NOT EXISTS admins (
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     fullname VARCHAR(100) NOT NULL,
-    role VARCHAR(20) DEFAULT 'admin',
+    role ENUM('super_admin','admin') NOT NULL DEFAULT 'admin',
+    department_id INT NULL,
+    status ENUM('active','inactive') NOT NULL DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS departments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    department_name VARCHAR(100) NOT NULL,
+    department_code VARCHAR(50) UNIQUE NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS students (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -29,7 +36,9 @@ CREATE TABLE IF NOT EXISTS students (
     rfid_uid VARCHAR(50) UNIQUE NOT NULL,
     photo VARCHAR(255),
     status ENUM('Active', 'Inactive') DEFAULT 'Active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    department_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
 );
 
 -- Activity logs table
@@ -44,12 +53,14 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 -- Attendance Sessions Table
 CREATE TABLE IF NOT EXISTS attendance_sessions (
     id INT PRIMARY KEY AUTO_INCREMENT,
+    department_id INT NULL,
     session_name VARCHAR(100) NOT NULL,
     attendance_type ENUM('IN', 'OUT') NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     status ENUM('ACTIVE', 'INACTIVE') DEFAULT 'INACTIVE',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
 );
 
 -- Attendance Logs Table
@@ -76,5 +87,5 @@ CREATE TABLE IF NOT EXISTS unknown_scans (
 
 -- Insert default admin account
 -- Password is hashed using password_hash('admin123', PASSWORD_DEFAULT)
-INSERT INTO admins (username, password, fullname, role) VALUES
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 'admin');
+INSERT INTO admins (username, password, fullname, role, status) VALUES
+('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System Administrator', 'super_admin', 'active');

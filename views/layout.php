@@ -4,10 +4,11 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../backend/auth.php';
-ensure_admin_session();
+ensure_user_session();
 
 function render_header(string $page_title = 'RFID System'): void
 {
+    $isSuperAdmin = is_super_admin();
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +35,11 @@ function render_header(string $page_title = 'RFID System'): void
                 <a class="nav-link text-white" href="/views/attendance/attendance_logs.php"><i class="bi bi-clock-history me-2"></i>Attendance Logs</a>
                 <a class="nav-link text-white" href="/views/attendance/attendance_sessions.php"><i class="bi bi-calendar-check me-2"></i>Sessions</a>
                 <a class="nav-link text-white" href="/views/attendance/attendance_reports.php"><i class="bi bi-file-earmark-bar-graph me-2"></i>Reports</a>
+                <?php if ($isSuperAdmin): ?>
+                    <a class="nav-link text-white" href="/views/dashboard.php#manage-admins"><i class="bi bi-gear me-2"></i>Manage Admins</a>
+                    <a class="nav-link text-white" href="/views/dashboard.php#manage-departments"><i class="bi bi-buildings me-2"></i>Departments</a>
+                    <a class="nav-link text-white" href="/views/dashboard.php#activity-logs"><i class="bi bi-list-check me-2"></i>Activity Logs</a>
+                <?php endif; ?>
                 <a class="nav-link text-white" href="/logout.php"><i class="bi bi-box-arrow-right me-2"></i>Logout</a>
             </nav>
         </aside>

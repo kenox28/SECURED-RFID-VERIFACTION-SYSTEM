@@ -8,14 +8,21 @@ function get_students(string $search = '', int $page = 1, int $per_page = 10): a
 {
     global $pdo;
 
-    $where_clause = '';
+    $where = [];
     $params = [];
 
     if (trim($search) !== '') {
         $search_param = '%' . trim($search) . '%';
-        $where_clause = 'WHERE student_id LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR course LIKE ?';
-        $params = [$search_param, $search_param, $search_param, $search_param];
+        $where[] = '(student_id LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR course LIKE ?)';
+        $params = array_merge($params, [$search_param, $search_param, $search_param, $search_param]);
     }
+
+    if (!is_super_admin()) {
+        $where[] = 'department_id = ?';
+        $params[] = $_SESSION['department_id'];
+    }
+
+    $where_clause = empty($where) ? '' : 'WHERE ' . implode(' AND ', $where);
 
     $count_sql = "SELECT COUNT(*) as total FROM students $where_clause";
     $stmt = $pdo->prepare($count_sql);
@@ -48,7 +55,14 @@ function get_students(string $search = '', int $page = 1, int $per_page = 10): a
 function get_student_by_id(int $student_id): ?array
 {
     global $pdo;
-    $stmt = $pdo->prepare('SELECT * FROM students WHERE id = ?');
-    $stmt->execute([$student_id]);
+
+    if (is_super_admin()) {
+        $stmt = $pdo->prepare('SELECT * FROM students WHERE id = ?');
+        $stmt->execute([$student_id]);
+        return $stmt->fetch() ?: null;
+    }
+
+    $stmt = $pdo->prepare('SELECT * FROM students WHERE id = ? AND department_id = ?');
+    $stmt->execute([$student_id, $_SESSION['department_id']]);
     return $stmt->fetch() ?: null;
 }

@@ -26,16 +26,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         $stmt = $pdo->prepare("SELECT password FROM admins WHERE id = ?");
-        $stmt->execute([$_SESSION['admin_id']]);
+        $stmt->execute([$_SESSION['user_id']]);
         $admin = $stmt->fetch();
 
         if ($admin && password_verify($current_password, $admin['password'])) {
             $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE admins SET password = ? WHERE id = ?");
-            $stmt->execute([$hashed_password, $_SESSION['admin_id']]);
+            $stmt->execute([$hashed_password, $_SESSION['user_id']]);
 
-            $stmt = $pdo->prepare("INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)");
-            $stmt->execute([$_SESSION['admin_id'], 'Changed password']);
+            log_activity("[" . ($_SESSION['role'] ?? 'unknown') . "] " . ($_SESSION['username'] ?? 'unknown') . ' changed password');
 
             $success = 'Password changed successfully!';
         } else {
@@ -45,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $stmt = $pdo->prepare("SELECT username, fullname, created_at FROM admins WHERE id = ?");
-$stmt->execute([$_SESSION['admin_id']]);
+$stmt->execute([$_SESSION['user_id']]);
 $admin = $stmt->fetch();
 ?>
 <div class="row">

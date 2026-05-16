@@ -7,33 +7,53 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/database.php';
 
-function ensure_admin_session(): void
+function ensure_user_session(): void
 {
-    if (!isset($_SESSION['admin_id'])) {
+    if (!isset($_SESSION['user_id'])) {
         header('Location: /login.php');
         exit();
     }
+
+    $user = get_logged_user();
+    if (!$user || $user['status'] !== 'active' || !in_array($user['role'], ['super_admin', 'admin'], true)) {
+        user_logout();
+        header('Location: /login.php');
+        exit();
+    }
+
+    // Keep session values in sync with database
+    $_SESSION['username'] = $user['username'];
+    $_SESSION['fullname'] = $user['fullname'];
+    $_SESSION['role'] = $user['role'];
+    $_SESSION['department_id'] = $user['department_id'];
 }
 
-function admin_login(string $username, string $password, bool $remember = false): bool
+function user_login(string $username, string $password, bool $remember = false): bool
 {
     global $pdo;
 
-    $stmt = $pdo->prepare('SELECT id, username, password, fullname FROM admins WHERE username = ?');
+    $stmt = $pdo->prepare('SELECT id, username, password, fullname, role, department_id, status FROM admins WHERE username = ?');
     $stmt->execute([$username]);
-    $admin = $stmt->fetch();
+    $user = $stmt->fetch();
 
-    if ($admin && password_verify($password, $admin['password'])) {
-        $_SESSION['admin_id'] = $admin['id'];
-        $_SESSION['admin_username'] = $admin['username'];
-        $_SESSION['admin_fullname'] = $admin['fullname'];
+    if (!$user || $user['status'] !== 'active' || !in_array($user['role'], ['super_admin', 'admin'], true)) {
+        return false;
+    }
+
+    if ($user && password_verify($password, $user['password'])) {
+        session_regenerate_id(true);
+
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['fullname'] = $user['fullname'];
+        $_SESSION['role'] = $user['role'];
+        $_SESSION['department_id'] = $user['department_id'];
 
         if ($remember) {
             setcookie('admin_login', session_id(), time() + 30 * 24 * 60 * 60, '/');
         }
 
-        $stmt = $pdo->prepare('INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)');
-        $stmt->execute([$admin['id'], 'Admin logged in']);
+        log_activity("[{$user['role']}] {$user['username']} logged in");
 
         return true;
     }
@@ -41,12 +61,10 @@ function admin_login(string $username, string $password, bool $remember = false)
     return false;
 }
 
-function admin_logout(): void
+function user_logout(): void
 {
-    if (isset($_SESSION['admin_id'])) {
-        global $pdo;
-        $stmt = $pdo->prepare('INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)');
-        $stmt->execute([$_SESSION['admin_id'], 'Admin logged out']);
+    if (isset($_SESSION['user_id'])) {
+        log_activity("[" . ($_SESSION['role'] ?? 'unknown') . "] " . ($_SESSION['username'] ?? 'unknown') . ' logged out');
     }
 
     $_SESSION = [];
@@ -64,14 +82,45 @@ function admin_logout(): void
     }
 }
 
-function get_logged_admin(): ?array
+function get_logged_user(): ?array
 {
-    if (!isset($_SESSION['admin_id'])) {
+    if (!isset($_SESSION['user_id'])) {
         return null;
     }
 
     global $pdo;
-    $stmt = $pdo->prepare('SELECT id, username, fullname, role FROM admins WHERE id = ?');
-    $stmt->execute([$_SESSION['admin_id']]);
+    $stmt = $pdo->prepare('SELECT id, username, fullname, role, department_id, status FROM admins WHERE id = ?');
+    $stmt->execute([$_SESSION['user_id']]);
     return $stmt->fetch() ?: null;
+}
+
+function is_super_admin(): bool
+{
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'super_admin';
+}
+
+function is_department_admin(): bool
+{
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+}
+
+function get_department_filter(string $alias = ''): array
+{
+    if (is_super_admin()) {
+        return ['', []];
+    }
+
+    $prefix = $alias !== '' ? $alias . '.' : '';
+    return ["{$prefix}department_id = ?", [$_SESSION['department_id']]];
+}
+
+function log_activity(string $message): void
+{
+    global $pdo;
+    $userId = $_SESSION['user_id'] ?? null;
+
+    if ($userId) {
+        $stmt = $pdo->prepare('INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)');
+        $stmt->execute([$userId, $message]);
+    }
 }

@@ -8,11 +8,17 @@ if (!$student_id) {
     exit();
 }
 
-$stmt = $pdo->prepare("SELECT student_id, photo FROM students WHERE id = ?");
-$stmt->execute([$student_id]);
+if (is_super_admin()) {
+    $stmt = $pdo->prepare("SELECT student_id, photo FROM students WHERE id = ?");
+    $stmt->execute([$student_id]);
+} else {
+    $stmt = $pdo->prepare("SELECT student_id, photo FROM students WHERE id = ? AND department_id = ?");
+    $stmt->execute([$student_id, $_SESSION['department_id']]);
+}
 $student = $stmt->fetch();
 
 if (!$student) {
+    $_SESSION['error'] = 'You are not authorized to delete this student.';
     header('Location: students.php');
     exit();
 }

@@ -1,38 +1,37 @@
 <?php
 // login.php
+// login.php
 session_start();
 
-// If already logged in, redirect to dashboard
-if (isset($_SESSION['admin_id'])) {
+require_once 'backend/auth.php';
+
+if (isset($_SESSION['user_id'])) {
     header('Location: views/dashboard.php');
     exit();
 }
 
-require_once 'backend/auth.php';
-
 $errors = [];
 $success = '';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $remember = isset($_POST['remember']);
 
-    // Validation
-    if (empty($username)) {
+    if ($username === '') {
         $errors[] = 'Username is required';
     }
-    if (empty($password)) {
+    if ($password === '') {
         $errors[] = 'Password is required';
     }
 
     if (empty($errors)) {
-        if (admin_login($username, $password, $remember)) {
+        if (user_login($username, $password, $remember)) {
             header('Location: views/dashboard.php');
             exit();
         }
 
-        $errors[] = 'Invalid username or password';
+        $errors[] = 'Invalid username or password or account inactive';
     }
 }
 ?>

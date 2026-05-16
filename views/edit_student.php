@@ -21,6 +21,22 @@ if (!$student) {
     exit();
 }
 
+$departments = $pdo->query('SELECT id, department_name, department_code FROM departments ORDER BY department_name')->fetchAll();
+$currentDepartmentId = $_SESSION['department_id'] ?? null;
+$currentDepartment = null;
+foreach ($departments as $dept) {
+    if ($dept['id'] == $currentDepartmentId) {
+        $currentDepartment = $dept;
+        break;
+    }
+}
+
+if (!is_super_admin() && $student['department_id'] != $currentDepartmentId) {
+    $_SESSION['error'] = 'You are not authorized to edit this student.';
+    header('Location: students.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $student_id_val = trim($_POST['student_id'] ?? '');
     $first_name = trim($_POST['first_name'] ?? '');
@@ -34,6 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $address = trim($_POST['address'] ?? '');
     $rfid_uid = trim($_POST['rfid_uid'] ?? '');
     $status = $_POST['status'] ?? 'Active';
+    $department_id = is_super_admin() ? intval($_POST['department_id'] ?? 0) : $currentDepartmentId;
+
+    if (is_super_admin() && $department_id <= 0) {
+        $errors[] = 'Department is required for student updates.';
+    }
 
     if (empty($student_id_val)) $errors[] = 'Student ID is required';
     if (empty($first_name)) $errors[] = 'First name is required';
@@ -93,11 +114,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare("UPDATE students SET student_id = ?, first_name = ?, last_name = ?, middle_name = ?, course = ?, year_level = ?, section = ?, contact_number = ?, email = ?, address = ?, rfid_uid = ?, photo = ?, status = ? WHERE id = ?");
-            $stmt->execute([$student_id_val, $first_name, $last_name, $middle_name, $course, $year_level, $section, $contact_number, $email, $address, $rfid_uid, $photo_path, $status, $student_id]);
+            $stmt = $pdo->prepare("UPDATE students SET student_id = ?, first_name = ?, last_name = ?, middle_name = ?, course = ?, year_level = ?, section = ?, contact_number = ?, email = ?, address = ?, rfid_uid = ?, photo = ?, status = ?, department_id = ? WHERE id = ?");
+            $stmt->execute([$student_id_val, $first_name, $last_name, $middle_name, $course, $year_level, $section, $contact_number, $email, $address, $rfid_uid, $photo_path, $status, $department_id, $student_id]);
 
-            $stmt = $pdo->prepare("INSERT INTO activity_logs (admin_id, activity) VALUES (?, ?)");
-            $stmt->execute([$_SESSION['admin_id'], "Updated student: $student_id_val"]);
+            log_activity("[" . ($_SESSION['role'] ?? 'unknown') . "] " . ($_SESSION['username'] ?? 'unknown') . " updated student: $student_id_val");
 
             $success = 'Student updated successfully!';
             $stmt = $pdo->prepare("SELECT * FROM students WHERE id = ?");
@@ -196,6 +216,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <label for="address" class="form-label">Address *</label>
                         <textarea class="form-control" id="address" name="address" rows="3" required><?php echo htmlspecialchars($student['address']); ?></textarea>
                     </div>
+
+                    <?php if (is_super_admin()): ?>
+                        <div class="mb-3">
+                            <label for="department_id" class="form-label">Department *</label>
+                            <select class="form-select" id="department_id" name="department_id" required>
+                                <option value="">Select Department</option>
+                                <?php foreach ($departments as $dept): ?>
+                                    <option value="<?php echo $dept['id']; ?>" <?php echo ($student['department_id'] == $dept['id'] || (isset($_POST['department_id']) && $_POST['department_id'] == $dept['id'])) ? 'selected' : ''; ?>><?php echo htmlspecialchars($dept['department_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php else: ?>
+                        <?php if ($currentDepartment): ?>
+                            <div class="mb-3">
+                                <label class="form-label">Department</label>
+                                <div class="form-control-plaintext"><?php echo htmlspecialchars($currentDepartment['department_name']); ?></div>
+                            </div>
+                            <input type="hidden" name="department_id" value="<?php echo htmlspecialchars($currentDepartmentId); ?>">
+                        <?php endif; ?>
+                    <?php endif; ?>
 
                     <?php if ($student['photo']): ?>
                         <div class="mb-3">
