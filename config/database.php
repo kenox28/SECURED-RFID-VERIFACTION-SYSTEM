@@ -11,126 +11,138 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8 COLLATE utf8_general_ci");
+    // Create DB
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname`");
     $pdo->exec("USE `$dbname`");
-    $pdo->exec("SET NAMES utf8");
+
+    /* =========================
+       TABLES
+    ========================= */
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS admins (
-        id INT PRIMARY KEY AUTO_INCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         fullname VARCHAR(100) NOT NULL,
-        role ENUM('super_admin','admin') NOT NULL DEFAULT 'admin',
+        role ENUM('super_admin','admin') DEFAULT 'admin',
         department_id INT NULL,
-        status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+        status ENUM('active','inactive') DEFAULT 'active',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS departments (
-        id INT PRIMARY KEY AUTO_INCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         department_name VARCHAR(100) NOT NULL,
-        department_code VARCHAR(50) UNIQUE NOT NULL
+        department_code VARCHAR(50) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS students (
-        id INT PRIMARY KEY AUTO_INCREMENT,
+        id INT AUTO_INCREMENT PRIMARY KEY,
         student_id VARCHAR(20) UNIQUE NOT NULL,
         first_name VARCHAR(50) NOT NULL,
         last_name VARCHAR(50) NOT NULL,
         middle_name VARCHAR(50),
-        course VARCHAR(100) NOT NULL,
-        year_level VARCHAR(10) NOT NULL,
-        section VARCHAR(20) NOT NULL,
-        contact_number VARCHAR(15) NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        address TEXT NOT NULL,
-        rfid_uid VARCHAR(50) UNIQUE NOT NULL,
+        course VARCHAR(100),
+        year_level VARCHAR(10),
+        section VARCHAR(20),
+        contact_number VARCHAR(15),
+        email VARCHAR(100),
+        address TEXT,
+        rfid_uid VARCHAR(50) UNIQUE,
         photo VARCHAR(255),
-        status ENUM('Active', 'Inactive') DEFAULT 'Active',
+        status ENUM('Active','Inactive') DEFAULT 'Active',
         department_id INT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
-    )");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS activity_logs (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        admin_id INT NOT NULL,
-        activity TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
-    )");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS attendance_sessions (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        department_id INT NULL,
-        session_name VARCHAR(100) NOT NULL,
-        attendance_type ENUM('IN', 'OUT') NOT NULL,
-        start_time TIME NOT NULL,
-        end_time TIME NOT NULL,
-        status ENUM('ACTIVE', 'INACTIVE') DEFAULT 'INACTIVE',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL
-    )");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS attendance_logs (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        student_id INT NOT NULL,
-        rfid_uid VARCHAR(50) NOT NULL,
-        attendance_type ENUM('IN', 'OUT') NOT NULL,
-        session_id INT NOT NULL,
-        scan_method ENUM('RFID', 'QR') NOT NULL,
-        scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-        FOREIGN KEY (session_id) REFERENCES attendance_sessions(id) ON DELETE CASCADE
-    )");
-
-    $pdo->exec("CREATE TABLE IF NOT EXISTS unknown_scans (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        scanned_value VARCHAR(255) NOT NULL,
-        scan_method ENUM('RFID', 'QR') NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
-    $columnExists = function (string $table, string $column) use ($pdo): bool {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS activity_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        admin_id INT,
+        activity TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS attendance_sessions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        department_id INT NULL,
+        session_name VARCHAR(100),
+        attendance_type ENUM('IN','OUT'),
+        start_time TIME,
+        end_time TIME,
+        status ENUM('ACTIVE','INACTIVE') DEFAULT 'INACTIVE',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS attendance_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT,
+        rfid_uid VARCHAR(50),
+        attendance_type ENUM('IN','OUT'),
+        session_id INT,
+        scan_method ENUM('RFID','QR'),
+        scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS unknown_scans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        scanned_value VARCHAR(255),
+        scan_method ENUM('RFID','QR'),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    /* =========================
+       SAFE ALTER FIX (IMPORTANT)
+       Prevents "column already exists" errors
+    ========================= */
+
+    function addColumnIfNotExists($pdo, $table, $column, $definition)
+    {
         $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
         $stmt->execute([$column]);
-        return (bool) $stmt->fetch();
-    };
 
-    if (!$columnExists('admins', 'role')) {
-        $pdo->exec("ALTER TABLE admins ADD COLUMN role ENUM('super_admin','admin') NOT NULL DEFAULT 'admin'");
+        if (!$stmt->fetch()) {
+            $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+        }
     }
-    if (!$columnExists('admins', 'department_id')) {
-        $pdo->exec("ALTER TABLE admins ADD COLUMN department_id INT NULL");
-    }
-    if (!$columnExists('admins', 'status')) {
-        $pdo->exec("ALTER TABLE admins ADD COLUMN status ENUM('active', 'inactive') NOT NULL DEFAULT 'active'");
-    }
-    if (!$columnExists('students', 'department_id')) {
-        $pdo->exec("ALTER TABLE students ADD COLUMN department_id INT NULL");
-    }
-    if (!$columnExists('attendance_sessions', 'department_id')) {
-        $pdo->exec("ALTER TABLE attendance_sessions ADD COLUMN department_id INT NULL");
-    }
+
+    // APPLY SAFE ALTERATIONS
+    addColumnIfNotExists($pdo, 'admins', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    addColumnIfNotExists($pdo, 'departments', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    addColumnIfNotExists($pdo, 'students', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    addColumnIfNotExists($pdo, 'activity_logs', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    addColumnIfNotExists($pdo, 'attendance_sessions', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    addColumnIfNotExists($pdo, 'unknown_scans', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+
+    /* =========================
+       DEFAULT ADMIN
+    ========================= */
 
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM admins WHERE username = 'admin'");
     $stmt->execute();
+
     if ($stmt->fetchColumn() == 0) {
-        $hashedPassword = password_hash('admin123', PASSWORD_DEFAULT);
-        $insert = $pdo->prepare("INSERT INTO admins (username, password, fullname, role, status) VALUES (?, ?, ?, ?, ?)");
-        $insert->execute(['admin', $hashedPassword, 'System Administrator', 'super_admin', 'active']);
-    } else {
-        // Ensure default admin remains super_admin and active
-        $update = $pdo->prepare("UPDATE admins SET role = 'super_admin', status = 'active' WHERE username = 'admin'");
-        $update->execute();
+        $hashed = password_hash('admin123', PASSWORD_DEFAULT);
+
+        $pdo->prepare("
+            INSERT INTO admins (username,password,fullname,role,status)
+            VALUES (?,?,?,?,?)
+        ")->execute(['admin', $hashed, 'System Administrator', 'super_admin', 'active']);
     }
+
+    /* =========================
+       DEFAULT DEPARTMENT
+    ========================= */
 
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM departments WHERE department_code = 'GENERAL'");
     $stmt->execute();
+
     if ($stmt->fetchColumn() == 0) {
-        $insert = $pdo->prepare("INSERT INTO departments (department_name, department_code) VALUES (?, ?)");
-        $insert->execute(['General', 'GENERAL']);
+        $pdo->prepare("
+            INSERT INTO departments (department_name, department_code)
+            VALUES (?, ?)
+        ")->execute(['General', 'GENERAL']);
     }
 
 } catch (PDOException $e) {
