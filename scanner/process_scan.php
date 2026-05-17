@@ -34,7 +34,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT id, student_id, first_name, last_name, middle_name,
                course, year_level, section, contact_number, email,
-               address, rfid_uid, photo, status
+               address, rfid_uid, photo, status, department_id
         FROM students
         WHERE rfid_uid = ?
         LIMIT 1
@@ -70,29 +70,58 @@ try {
     // ------------------------------------------------------------------
     $now        = date('H:i:s');
     $todayDate  = date('Y-m-d');
+    $studentDepartmentId = $student['department_id'];
 
-    $sessionStmt = $pdo->prepare("
-        SELECT id, session_name, attendance_type, start_time, end_time
-        FROM attendance_sessions
-        WHERE status = 'ACTIVE'
-          AND start_time <= ?
-          AND end_time   >= ?
-        ORDER BY start_time ASC
-        LIMIT 1
-    ");
-    $sessionStmt->execute([$now, $now]);
+    if ($studentDepartmentId !== null) {
+        $sessionStmt = $pdo->prepare("
+            SELECT id, session_name, attendance_type, start_time, end_time
+            FROM attendance_sessions
+            WHERE status = 'ACTIVE'
+              AND start_time <= ?
+              AND end_time   >= ?
+              AND (department_id = ? OR department_id IS NULL)
+            ORDER BY start_time ASC
+            LIMIT 1
+        ");
+        $sessionStmt->execute([$now, $now, $studentDepartmentId]);
+    } else {
+        $sessionStmt = $pdo->prepare("
+            SELECT id, session_name, attendance_type, start_time, end_time
+            FROM attendance_sessions
+            WHERE status = 'ACTIVE'
+              AND start_time <= ?
+              AND end_time   >= ?
+              AND department_id IS NULL
+            ORDER BY start_time ASC
+            LIMIT 1
+        ");
+        $sessionStmt->execute([$now, $now]);
+    }
     $session = $sessionStmt->fetch();
 
     if (!$session) {
         // No time-matched session — try any ACTIVE session as fallback
-        $fallbackStmt = $pdo->prepare("
-            SELECT id, session_name, attendance_type, start_time, end_time
-            FROM attendance_sessions
-            WHERE status = 'ACTIVE'
-            ORDER BY created_at DESC
-            LIMIT 1
-        ");
-        $fallbackStmt->execute();
+        if ($studentDepartmentId !== null) {
+            $fallbackStmt = $pdo->prepare("
+                SELECT id, session_name, attendance_type, start_time, end_time
+                FROM attendance_sessions
+                WHERE status = 'ACTIVE'
+                  AND (department_id = ? OR department_id IS NULL)
+                ORDER BY created_at DESC
+                LIMIT 1
+            ");
+            $fallbackStmt->execute([$studentDepartmentId]);
+        } else {
+            $fallbackStmt = $pdo->prepare("
+                SELECT id, session_name, attendance_type, start_time, end_time
+                FROM attendance_sessions
+                WHERE status = 'ACTIVE'
+                  AND department_id IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+            ");
+            $fallbackStmt->execute();
+        }
         $session = $fallbackStmt->fetch();
     }
 

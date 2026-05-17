@@ -6,8 +6,14 @@ $filter_session = intval($_GET['session_id'] ?? 0);
 $filter_date = $_GET['date'] ?? date('Y-m-d');
 $filter_type = $_GET['type'] ?? '';
 
+$deptFilter = get_department_filter('asess', true);
 $where = ['DATE(al.scan_time) = ?'];
 $params = [$filter_date];
+
+if ($deptFilter[0] !== '') {
+    $where[] = $deptFilter[0];
+    $params = array_merge($params, $deptFilter[1]);
+}
 
 if ($filter_session > 0) {
     $where[] = 'al.session_id = ?';

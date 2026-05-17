@@ -37,6 +37,8 @@ if (!is_super_admin() && $student['department_id'] != $currentDepartmentId) {
     exit();
 }
 
+$selectedDepartmentId = $student['department_id'];
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $student_id_val = trim($_POST['student_id'] ?? '');
     $first_name = trim($_POST['first_name'] ?? '');

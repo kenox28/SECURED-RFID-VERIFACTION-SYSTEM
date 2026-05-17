@@ -6,6 +6,15 @@ render_header($page_title);
 
 $errors = [];
 $old = [];
+$departments = $pdo->query("SELECT id, department_name FROM departments ORDER BY department_name ASC")->fetchAll();
+$currentDepartmentId = $_SESSION['department_id'] ?? null;
+$currentDepartmentName = 'General';
+foreach ($departments as $department) {
+    if ($department['id'] === $currentDepartmentId) {
+        $currentDepartmentName = $department['department_name'];
+        break;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $old = $_POST;
@@ -20,10 +29,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($end_time === '') $errors[] = 'End time is required.';
     if ($start_time && $end_time && $start_time >= $end_time) $errors[] = 'End time must be after start time.';
 
+    $department_id = null;
+    if (is_super_admin()) {
+        $department_id = intval($_POST['department_id'] ?? 0) ?: null;
+        if ($department_id !== null) {
+            $existsStmt = $pdo->prepare('SELECT COUNT(*) FROM departments WHERE id = ?');
+            $existsStmt->execute([$department_id]);
+            if ($existsStmt->fetchColumn() == 0) {
+                $errors[] = 'Selected department does not exist.';
+            }
+        }
+    } else {
+        $department_id = $currentDepartmentId;
+    }
+
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO attendance_sessions (session_name, attendance_type, start_time, end_time, status) VALUES (?, ?, ?, ?, 'INACTIVE')");
-            $stmt->execute([$session_name, $attendance_type, $start_time, $end_time]);
+            $stmt = $pdo->prepare("INSERT INTO attendance_sessions (department_id, session_name, attendance_type, start_time, end_time, status) VALUES (?, ?, ?, ?, ?, 'INACTIVE')");
+            $stmt->execute([$department_id, $session_name, $attendance_type, $start_time, $end_time]);
             $_SESSION['flash'] = "Session \"$session_name\" created successfully.";
             header('Location: attendance_sessions.php');
             ob_end_flush();
@@ -65,6 +88,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <option value="OUT" <?php echo (($old['attendance_type'] ?? '') === 'OUT') ? 'selected' : ''; ?>>OUT (Time-out)</option>
                     </select>
                 </div>
+                <?php if (is_super_admin()): ?>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Department</label>
+                        <select class="form-select" name="department_id">
+                            <option value="0">General / All Departments</option>
+                            <?php foreach ($departments as $department): ?>
+                                <option value="<?php echo $department['id']; ?>" <?php echo intval($old['department_id'] ?? 0) === $department['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($department['department_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Leave as General for sessions that apply to all departments.</div>
+                    </div>
+                <?php else: ?>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Department</label>
+                        <input type="text" class="form-control" value="<?php echo htmlspecialchars($currentDepartmentName); ?>" disabled>
+                    </div>
+                <?php endif; ?>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label fw-semibold">Start Time <span class="text-danger">*</span></label>

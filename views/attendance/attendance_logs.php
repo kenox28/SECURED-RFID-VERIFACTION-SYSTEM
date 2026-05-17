@@ -8,8 +8,15 @@ $filter_date = $_GET['date'] ?? date('Y-m-d');
 $filter_type = $_GET['type'] ?? '';
 $filter_search = trim($_GET['search'] ?? '');
 
+$deptFilter = get_department_filter('asess', true);
+$sessionDeptFilter = get_department_filter('', true);
 $where = ['DATE(al.scan_time) = ?'];
 $params = [$filter_date];
+
+if ($deptFilter[0] !== '') {
+    $where[] = $deptFilter[0];
+    $params = array_merge($params, $deptFilter[1]);
+}
 
 if ($filter_session > 0) {
     $where[] = 'al.session_id = ?';
@@ -30,7 +37,14 @@ $stmt = $pdo->prepare("SELECT al.id, al.rfid_uid, al.attendance_type, al.scan_me
 $stmt->execute($params);
 $logs = $stmt->fetchAll();
 
-$sessions = $pdo->query("SELECT id, session_name FROM attendance_sessions ORDER BY created_at DESC")->fetchAll();
+$sessionsSql = "SELECT id, session_name FROM attendance_sessions";
+if ($sessionDeptFilter[0] !== '') {
+    $sessionsSql .= " WHERE {$sessionDeptFilter[0]}";
+}
+$sessionsSql .= " ORDER BY created_at DESC";
+$sessions = $pdo->prepare($sessionsSql);
+$sessions->execute($sessionDeptFilter[1]);
+$sessions = $sessions->fetchAll();
 ?>
 <div class="container-fluid px-4 mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">

@@ -104,13 +104,17 @@ function is_department_admin(): bool
     return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 }
 
-function get_department_filter(string $alias = ''): array
+function get_department_filter(string $alias = '', bool $allowNull = false): array
 {
     if (is_super_admin()) {
         return ['', []];
     }
 
     $prefix = $alias !== '' ? $alias . '.' : '';
+    if ($allowNull) {
+        return ["({$prefix}department_id = ? OR {$prefix}department_id IS NULL)", [$_SESSION['department_id']]];
+    }
+
     return ["{$prefix}department_id = ?", [$_SESSION['department_id']]];
 }
 

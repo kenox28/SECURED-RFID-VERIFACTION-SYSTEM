@@ -1,8 +1,6 @@
 <?php
-session_start();
-require_once __DIR__ . '/../../config/database.php';
-
-
+ob_start();
+require_once __DIR__ . '/../layout.php';
 
 if (!isset($_POST['id'])) {
     $_SESSION['flash_error'] = 'No session ID provided.';
@@ -13,7 +11,24 @@ if (!isset($_POST['id'])) {
 $session_id = (int) $_POST['id'];
 
 try {
-    // 1. Stop session in database
+    $permissionStmt = $pdo->prepare("SELECT id, department_id, session_name FROM attendance_sessions WHERE id = ?");
+    $permissionStmt->execute([$session_id]);
+    $session = $permissionStmt->fetch();
+
+    if (!$session) {
+        $_SESSION['flash_error'] = 'Session not found.';
+        header('Location: attendance_sessions.php');
+        ob_end_flush();
+        exit;
+    }
+
+    if (!is_super_admin() && $session['department_id'] !== null && $session['department_id'] != $_SESSION['department_id']) {
+        $_SESSION['flash_error'] = 'You are not authorized to stop this session.';
+        header('Location: attendance_sessions.php');
+        ob_end_flush();
+        exit;
+    }
+
     $stmt = $pdo->prepare("UPDATE attendance_sessions SET status = 'INACTIVE' WHERE id = ?");
     $stmt->execute([$session_id]);
 
@@ -33,7 +48,7 @@ try {
         $_SESSION['flash'] = "Session \"$name\" has been STOPPED successfully.";
 
     } else {
-        $_SESSION['flash_error'] = 'Session not found or already inactive.';
+        $_SESSION['flash'] = "Session \"{$session['session_name']}\" has been stopped.";
     }
 
 } catch (PDOException $e) {

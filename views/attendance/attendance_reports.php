@@ -4,7 +4,16 @@ require_once __DIR__ . '/../layout.php';
 $page_title = 'Attendance Reports';
 render_header($page_title);
 
-$sessions = $pdo->query("SELECT id, session_name, attendance_type FROM attendance_sessions ORDER BY created_at DESC")->fetchAll();
+$deptFilter = get_department_filter('asess', true);
+$sessionDeptFilter = get_department_filter('', true);
+$sessionsSql = "SELECT id, session_name, attendance_type FROM attendance_sessions";
+if ($sessionDeptFilter[0] !== '') {
+    $sessionsSql .= " WHERE {$sessionDeptFilter[0]}";
+}
+$sessionsSql .= " ORDER BY created_at DESC";
+$sessionsStmt = $pdo->prepare($sessionsSql);
+$sessionsStmt->execute($sessionDeptFilter[1]);
+$sessions = $sessionsStmt->fetchAll();
 $filter_session = intval($_GET['session_id'] ?? 0);
 $date_from = $_GET['date_from'] ?? date('Y-m-d');
 $date_to = $_GET['date_to'] ?? date('Y-m-d');
@@ -17,6 +26,10 @@ if (isset($_GET['generate'])) {
     $where = ['DATE(al.scan_time) BETWEEN ? AND ?'];
     $params = [$date_from, $date_to];
 
+    if ($deptFilter[0] !== '') {
+        $where[] = $deptFilter[0];
+        $params = array_merge($params, $deptFilter[1]);
+    }
     if ($filter_session > 0) {
         $where[] = 'al.session_id = ?';
         $params[] = $filter_session;

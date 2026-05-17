@@ -3,7 +3,10 @@ require_once __DIR__ . '/../layout.php';
 $page_title = 'Attendance Sessions';
 render_header($page_title);
 
-$stmt = $pdo->query("SELECT * FROM attendance_sessions ORDER BY created_at DESC");
+$deptFilter = get_department_filter('asess', true);
+$whereSQL = $deptFilter[0] ? "WHERE {$deptFilter[0]}" : '';
+$stmt = $pdo->prepare("SELECT asess.*, d.department_name FROM attendance_sessions asess LEFT JOIN departments d ON asess.department_id = d.id {$whereSQL} ORDER BY asess.created_at DESC");
+$stmt->execute($deptFilter[1]);
 $sessions = $stmt->fetchAll();
 
 $flash = $_SESSION['flash'] ?? '';
@@ -40,6 +43,7 @@ unset($_SESSION['flash'], $_SESSION['flash_error']);
                         <tr>
                             <th style="width:40px">#</th>
                             <th>Session Name</th>
+                            <th>Department</th>
                             <th>Type</th>
                             <th>Start Time</th>
                             <th>End Time</th>
@@ -53,6 +57,7 @@ unset($_SESSION['flash'], $_SESSION['flash_error']);
                             <tr class="<?php echo $session['status'] === 'ACTIVE' ? 'table-success' : ''; ?>">
                                 <td class="text-muted small"><?php echo $i + 1; ?></td>
                                 <td class="fw-semibold"><?php echo htmlspecialchars($session['session_name']); ?></td>
+                                <td><?php echo htmlspecialchars($session['department_name'] ?? 'General'); ?></td>
                                 <td>
                                     <span class="badge <?php echo $session['attendance_type'] === 'IN' ? 'bg-primary' : 'bg-warning text-dark'; ?>">
                                         <?php echo htmlspecialchars($session['attendance_type']); ?>
