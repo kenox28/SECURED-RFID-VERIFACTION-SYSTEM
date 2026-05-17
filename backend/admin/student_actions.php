@@ -31,15 +31,18 @@ function get_students(string $search = '', int $page = 1, int $per_page = 10): a
     $total_pages = max(1, (int)ceil($total_records / $per_page));
     $offset = ($page - 1) * $per_page;
 
-    $sql = "SELECT * FROM students $where_clause ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
+    $sql = "SELECT * FROM students $where_clause ORDER BY created_at DESC LIMIT ? OFFSET ?";
     $stmt = $pdo->prepare($sql);
 
-    foreach ($params as $index => $value) {
-        $stmt->bindValue($index + 1, $value, PDO::PARAM_STR);
+    // Bind WHERE clause parameters first
+    $param_index = 1;
+    foreach ($params as $value) {
+        $stmt->bindValue($param_index++, $value, PDO::PARAM_STR);
     }
 
-    $stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    // Bind LIMIT and OFFSET as positional parameters
+    $stmt->bindValue($param_index++, $per_page, PDO::PARAM_INT);
+    $stmt->bindValue($param_index++, $offset, PDO::PARAM_INT);
     $stmt->execute();
     $students = $stmt->fetchAll();
 

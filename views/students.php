@@ -10,8 +10,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 $search = $_GET['search'] ?? '';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $per_page = 10;
-
-require_once __DIR__ . '/../backend/admin/student_actions.php';
+require_once dirname(__DIR__) . '/backend/admin/student_actions.php';
 $studentData = get_students($search, $page, $per_page);
 $students = $studentData['students'];
 $total_records = $studentData['total_records'];
