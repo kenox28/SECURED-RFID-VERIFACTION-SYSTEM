@@ -7,12 +7,13 @@ $errors = [];
 $success = '';
 
 define('STATUS_ACTIVE', 'Active');
-
 define('STATUS_INACTIVE', 'Inactive');
 
 $departments = $pdo->query('SELECT id, department_name, department_code FROM departments ORDER BY department_name')->fetchAll();
+
 $currentDepartmentId = $_SESSION['department_id'] ?? null;
 $currentDepartment = null;
+
 foreach ($departments as $dept) {
     if ($dept['id'] == $currentDepartmentId) {
         $currentDepartment = $dept;
@@ -20,7 +21,13 @@ foreach ($departments as $dept) {
     }
 }
 
+$selectedDepartmentId = null;
+if (!is_super_admin()) {
+    $selectedDepartmentId = $currentDepartmentId;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+
     $student_id = trim($_POST['student_id'] ?? '');
     $first_name = trim($_POST['first_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
@@ -32,12 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $address = trim($_POST['address'] ?? '');
     $rfid_uid = trim($_POST['rfid_uid'] ?? '');
     $status = $_POST['status'] ?? STATUS_ACTIVE;
+
     $department_id = null;
     $course = '';
     $selectedDepartmentId = null;
 
     if (is_super_admin()) {
         $selectedDepartmentId = intval($_POST['department_id'] ?? 0);
+
         if ($selectedDepartmentId <= 0) {
             $errors[] = 'Department is required for student registration.';
         } else {
@@ -52,14 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $errors[] = 'Selected department is invalid.';
             }
         }
+
     } else {
         $department_id = $currentDepartmentId;
-        $selectedDepartmentId = $currentDepartmentId;
-        if ($currentDepartment) {
-            $course = $currentDepartment['department_name'];
-        } else {
-            $errors[] = 'Your department is not configured.';
-        }
+        $course = $currentDepartment['department_name'] ?? '';
     }
 
     if (empty($student_id)) $errors[] = 'Student ID is required';
@@ -94,6 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     $photo_path = null;
+
     if (isset($_FILES['photo']) && $_FILES['photo']['error'] == 0) {
         $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
         $max_size = 5 * 1024 * 1024;
@@ -117,30 +123,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     if (empty($errors)) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO students (student_id, first_name, last_name, middle_name, course, year_level, section, contact_number, email, address, rfid_uid, photo, status, department_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ");
-            $stmt->execute([$student_id, $first_name, $last_name, $middle_name, $course, $year_level, $section, $contact_number, $email, $address, $rfid_uid, $photo_path, $status, $department_id]);
+            $stmt = $pdo->prepare("
+                INSERT INTO students
+                (student_id, first_name, last_name, middle_name, course, year_level, section, contact_number, email, address, rfid_uid, photo, status, department_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+
+            $stmt->execute([
+                $student_id,
+                $first_name,
+                $last_name,
+                $middle_name,
+                $course,
+                $year_level,
+                $section,
+                $contact_number,
+                $email,
+                $address,
+                $rfid_uid,
+                $photo_path,
+                $status,
+                $department_id
+            ]);
 
             log_activity("[" . ($_SESSION['role'] ?? 'unknown') . "] " . ($_SESSION['username'] ?? 'unknown') . " registered student: $student_id");
 
             $success = 'Student registered successfully!';
+
         } catch (PDOException $e) {
             $errors[] = 'Database error: ' . $e->getMessage();
         }
     }
 }
 ?>
+
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
                 <h5>Register New Student</h5>
             </div>
+
             <div class="card-body">
+
                 <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger">
                         <ul class="mb-0">
                             <?php foreach ($errors as $error): ?>
-                                <li><?php echo htmlspecialchars($error); ?></li>
+                                <li><?= htmlspecialchars($error) ?></li>
                             <?php endforeach; ?>
                         </ul>
                     </div>
@@ -148,152 +178,115 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 <?php if (!empty($success)): ?>
                     <div class="alert alert-success">
-                        <?php echo htmlspecialchars($success); ?>
+                        <?= htmlspecialchars($success) ?>
                     </div>
                 <?php endif; ?>
 
                 <form method="POST" enctype="multipart/form-data">
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="rfid_uid" class="form-label">RFID UID *</label>
-                            <input type="text" class="form-control" id="rfid_uid" name="rfid_uid" required autofocus>
-                            <div class="form-text">Scan RFID card or enter manually</div>
+                            <label>RFID UID *</label>
+                            <input type="text" name="rfid_uid" class="form-control" required>
                         </div>
+
                         <div class="col-md-6 mb-3">
-                            <label for="student_id" class="form-label">Student ID *</label>
-                            <input type="text" class="form-control" id="student_id" name="student_id" required>
+                            <label>Student ID *</label>
+                            <input type="text" name="student_id" class="form-control" required>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-4 mb-3">
-                            <label for="first_name" class="form-label">First Name *</label>
-                            <input type="text" class="form-control" id="first_name" name="first_name" required>
+                            <label>First Name *</label>
+                            <input type="text" name="first_name" class="form-control" required>
                         </div>
+
                         <div class="col-md-4 mb-3">
-                            <label for="middle_name" class="form-label">Middle Name</label>
-                            <input type="text" class="form-control" id="middle_name" name="middle_name">
+                            <label>Middle Name</label>
+                            <input type="text" name="middle_name" class="form-control">
                         </div>
+
                         <div class="col-md-4 mb-3">
-                            <label for="last_name" class="form-label">Last Name *</label>
-                            <input type="text" class="form-control" id="last_name" name="last_name" required>
+                            <label>Last Name *</label>
+                            <input type="text" name="last_name" class="form-control" required>
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="department_id" class="form-label">Course *</label>
-                            <?php if (is_super_admin()): ?>
-                                <select class="form-select" id="department_id" name="department_id" required>
-                                    <option value="">Select Department</option>
-                                    <?php foreach ($departments as $dept): ?>
-                                        <option value="<?php echo $dept['id']; ?>" <?php echo ($selectedDepartmentId == $dept['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($dept['department_name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            <?php else: ?>
-                                <select class="form-select" disabled>
-                                    <option value="<?php echo htmlspecialchars($currentDepartmentId); ?>" selected><?php echo htmlspecialchars($currentDepartment['department_name'] ?? ''); ?></option>
-                                </select>
-                                <input type="hidden" name="department_id" value="<?php echo htmlspecialchars($currentDepartmentId); ?>">
-                            <?php endif; ?>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="year_level" class="form-label">Year Level *</label>
-                            <select class="form-select" id="year_level" name="year_level" required>
-                                <option value="">Select Year</option>
-                                <option value="1st Year">1st Year</option>
-                                <option value="2nd Year">2nd Year</option>
-                                <option value="3rd Year">3rd Year</option>
-                                <option value="4th Year">4th Year</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="section" class="form-label">Section *</label>
-                            <input type="text" class="form-control" id="section" name="section" required>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="contact_number" class="form-label">Contact Number *</label>
-                            <input type="tel" class="form-control" id="contact_number" name="contact_number" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="email" class="form-label">Email *</label>
-                            <input type="email" class="form-control" id="email" name="email" required>
-                        </div>
-                    </div>
-
+                    <!-- ONLY COURSE DROPDOWN -->
                     <div class="mb-3">
-                        <label for="address" class="form-label">Address *</label>
-                        <textarea class="form-control" id="address" name="address" rows="3" required><?php echo htmlspecialchars($_POST['address'] ?? ''); ?></textarea>
-                    </div>
+                        <label>Course *</label>
 
-                    <?php if (is_super_admin()): ?>
-                        <div class="mb-3">
-                            <label for="department_id" class="form-label">Department *</label>
-                            <select class="form-select" id="department_id" name="department_id" required>
-                                <option value="">Select Department</option>
+                        <?php if (is_super_admin()): ?>
+                            <select name="department_id" class="form-select" required>
+                                <option value="">Select Course</option>
                                 <?php foreach ($departments as $dept): ?>
-                                    <option value="<?php echo $dept['id']; ?>" <?php echo (isset($_POST['department_id']) && $_POST['department_id'] == $dept['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($dept['department_name']); ?></option>
+                                    <option value="<?= $dept['id'] ?>"
+                                        <?= ($selectedDepartmentId == $dept['id']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($dept['department_name']) ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
-                        </div>
-                    <?php else: ?>
-                        <?php if ($currentDepartment): ?>
-                            <div class="mb-3">
-                                <label class="form-label">Department</label>
-                                <div class="form-control-plaintext"><?php echo htmlspecialchars($currentDepartment['department_name']); ?></div>
-                            </div>
-                            <input type="hidden" name="department_id" value="<?php echo htmlspecialchars($currentDepartmentId); ?>">
-                        <?php endif; ?>
-                    <?php endif; ?>
 
-                    <div class="mb-3">
-                        <label for="photo" class="form-label">Photo</label>
-                        <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
-                        <div class="form-text">Optional. Max 5MB. JPG, PNG, GIF only.</div>
+                        <?php else: ?>
+                            <input type="text" class="form-control"
+                                   value="<?= htmlspecialchars($currentDepartment['department_name'] ?? '') ?>" readonly>
+                            <input type="hidden" name="department_id" value="<?= $currentDepartmentId ?>">
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label>Year Level *</label>
+                            <select name="year_level" class="form-select" required>
+                                <option value="">Select Year</option>
+                                <option>1st Year</option>
+                                <option>2nd Year</option>
+                                <option>3rd Year</option>
+                                <option>4th Year</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label>Section *</label>
+                            <input type="text" name="section" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label>Contact *</label>
+                            <input type="text" name="contact_number" class="form-control" required>
+                        </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="status" class="form-label">Status</label>
-                        <select class="form-select" id="status" name="status">
+                        <label>Email *</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Address *</label>
+                        <textarea name="address" class="form-control" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Photo</label>
+                        <input type="file" name="photo" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label>Status</label>
+                        <select name="status" class="form-select">
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-primary">Register Student</button>
-                    <a href="students.php" class="btn btn-secondary ms-2">Cancel</a>
+                    <button class="btn btn-primary">Register Student</button>
                 </form>
+
             </div>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const rfidInput = document.getElementById('rfid_uid');
-    rfidInput.focus();
-    let rfidBuffer = '';
-    let lastKeyTime = Date.now();
-
-    document.addEventListener('keydown', function(e) {
-        const currentTime = Date.now();
-        if (currentTime - lastKeyTime > 100) {
-            rfidBuffer = '';
-        }
-        lastKeyTime = currentTime;
-        if (e.key.length === 1 && e.key.match(/[a-zA-Z0-9]/)) {
-            rfidBuffer += e.key;
-            if (rfidBuffer.length >= 8) {
-                rfidInput.value = rfidBuffer;
-                rfidBuffer = '';
-                document.getElementById('student_id').focus();
-            }
-        }
-    });
-});
-</script>
 
 <?php render_footer(); ?>

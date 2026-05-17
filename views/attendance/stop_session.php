@@ -1,38 +1,44 @@
 <?php
-ob_start();
-require_once __DIR__ . '/../layout.php';
 session_start();
+require_once __DIR__ . '/../../config/database.php';
 
-if (empty($_SESSION['admin_id'])) {
-    header('Location: /login.php');
-    exit;
-}
+
 
 if (!isset($_POST['id'])) {
     $_SESSION['flash_error'] = 'No session ID provided.';
     header('Location: attendance_sessions.php');
-    ob_end_flush();
     exit;
 }
 
-$session_id = intval($_POST['id']);
+$session_id = (int) $_POST['id'];
 
 try {
+    // 1. Stop session in database
     $stmt = $pdo->prepare("UPDATE attendance_sessions SET status = 'INACTIVE' WHERE id = ?");
     $stmt->execute([$session_id]);
 
-    if ($stmt->rowCount() === 0) {
-        $_SESSION['flash_error'] = 'Session not found.';
+    if ($stmt->rowCount() > 0) {
+
+        // 2. Get session name for message
+        $stmt2 = $pdo->prepare("SELECT session_name FROM attendance_sessions WHERE id = ?");
+        $stmt2->execute([$session_id]);
+        $name = $stmt2->fetchColumn();
+
+        // 3. IMPORTANT: clear any session tracking (FIX)
+        unset($_SESSION['active_session']);
+        unset($_SESSION['current_session']);
+        unset($_SESSION['session_id']);
+
+        // 4. Flash message
+        $_SESSION['flash'] = "Session \"$name\" has been STOPPED successfully.";
+
     } else {
-        $name = $pdo->prepare("SELECT session_name FROM attendance_sessions WHERE id = ?");
-        $name->execute([$session_id]);
-        $sname = $name->fetchColumn();
-        $_SESSION['flash'] = "Session \"$sname\" has been stopped.";
+        $_SESSION['flash_error'] = 'Session not found or already inactive.';
     }
+
 } catch (PDOException $e) {
     $_SESSION['flash_error'] = 'Database error: ' . $e->getMessage();
 }
 
 header('Location: attendance_sessions.php');
-ob_end_flush();
 exit;
