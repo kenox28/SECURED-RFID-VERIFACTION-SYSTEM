@@ -2,6 +2,10 @@
 // scanner/process_scan.php
 
 require_once '../config/database.php';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+require '../vendor/autoload.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -178,7 +182,91 @@ try {
         $session_id,
         $scan_method
     ]);
+    // ------------------------------------------------------------------
+    // 5. Send attendance notification email to student
+    // ------------------------------------------------------------------
 
+    if (!empty($student['email'])) {
+
+        $mail = new PHPMailer(true);
+
+        try {
+            $mail->SMTPDebug = 0;
+            $mail->isSMTP();
+            $mail->Host       = 'smtp.gmail.com';
+            $mail->SMTPAuth   = true;
+
+            // YOUR GMAIL
+            $mail->Username   = 'iquenxzx@gmail.com';
+
+            // YOUR GMAIL APP PASSWORD
+            $mail->Password   = 'lews hdga hdvb glym';
+
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->Port       = 465;
+
+            // Sender
+            $mail->setFrom('iquenxzx@gmail.com', 'RFID Attendance System');
+
+            // Student Email
+            $mail->addAddress(
+                $student['email'],
+                $student['first_name'] . ' ' . $student['last_name']
+            );
+
+            $mail->isHTML(true);
+
+            $mail->Subject = 'Attendance Recorded Successfully';
+
+            $mail->Body = "
+                <div style='font-family: Arial, sans-serif; padding:20px;'>
+                    <h2 style='color:#16a34a;'>Attendance Confirmed</h2>
+
+                    <p>Hello <strong>{$student['first_name']}</strong>,</p>
+
+                    <p>Your attendance has been successfully recorded by the RFID Attendance System.</p>
+
+                    <table style='border-collapse: collapse; width:100%; margin-top:15px;'>
+                        <tr>
+                            <td style='padding:8px; border:1px solid #ddd;'><strong>Student ID</strong></td>
+                            <td style='padding:8px; border:1px solid #ddd;'>{$student['student_id']}</td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:8px; border:1px solid #ddd;'><strong>Name</strong></td>
+                            <td style='padding:8px; border:1px solid #ddd;'>
+                                {$student['first_name']} {$student['last_name']}
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:8px; border:1px solid #ddd;'><strong>Attendance Type</strong></td>
+                            <td style='padding:8px; border:1px solid #ddd;'>{$attendance_type}</td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:8px; border:1px solid #ddd;'><strong>Session</strong></td>
+                            <td style='padding:8px; border:1px solid #ddd;'>{$session['session_name']}</td>
+                        </tr>
+
+                        <tr>
+                            <td style='padding:8px; border:1px solid #ddd;'><strong>Date & Time</strong></td>
+                            <td style='padding:8px; border:1px solid #ddd;'>" . date('F d, Y h:i A') . "</td>
+                        </tr>
+                    </table>
+
+                    <p style='margin-top:20px;'>
+                        This is an automated notification from the RFID Attendance System.
+                    </p>
+                </div>
+            ";
+
+            $mail->send();
+
+        } catch (Exception $e) {
+            error_log('Attendance email failed: ' . $mail->ErrorInfo);
+        }
+    }
     echo json_encode([
         'success'  => true,
         'message'  => 'Attendance recorded — ' . $attendance_type,
