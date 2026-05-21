@@ -92,6 +92,17 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )");
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS otp_verifications (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        otp_code VARCHAR(10) NOT NULL,
+        purpose VARCHAR(50) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        status ENUM('pending','used','expired') NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX (student_id)
+    )");
+
     /* =========================
        SAFE ALTER FIX (IMPORTANT)
        Prevents "column already exists" errors
@@ -114,6 +125,10 @@ try {
     addColumnIfNotExists($pdo, 'activity_logs', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
     addColumnIfNotExists($pdo, 'attendance_sessions', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
     addColumnIfNotExists($pdo, 'unknown_scans', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    addColumnIfNotExists($pdo, 'students', 'password', 'VARCHAR(255) NULL');
+    addColumnIfNotExists($pdo, 'students', 'is_activated', "ENUM('0','1') DEFAULT '0'");
+    addColumnIfNotExists($pdo, 'students', 'activated_at', 'DATETIME NULL');
+    addColumnIfNotExists($pdo, 'students', 'last_login', 'DATETIME NULL');
 
     /* =========================
        DEFAULT ADMIN
