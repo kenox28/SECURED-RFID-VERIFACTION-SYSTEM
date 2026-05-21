@@ -3,15 +3,19 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/../backend/auth.php';
+require_once __DIR__ . '/../../backend/student_auth.php';
 
-ensure_user_session();
+ensure_student_session();
 
-function render_header(string $page_title = 'RFID Verification System'): void
+function render_student_header(string $page_title = 'Student Portal'): void
 {
-    $isSuperAdmin = is_super_admin();
-    $userFullname = $_SESSION['fullname'] ?? 'Admin';
-    $userDept = $_SESSION['department_id'] ? 'Department Admin' : 'Super Admin';
+    $student = get_logged_student();
+
+    $studentName = trim(
+        ($student['first_name'] ?? '') . ' ' .
+        ($student['last_name'] ?? '')
+    );
+
     $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
 <!DOCTYPE html>
@@ -19,7 +23,7 @@ function render_header(string $page_title = 'RFID Verification System'): void
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($page_title); ?> | RFID System</title>
+    <title><?= htmlspecialchars($page_title); ?> | RFID Student Portal</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -49,7 +53,7 @@ function render_header(string $page_title = 'RFID Verification System'): void
             height: 100vh;
         }
 
-        /* SIDEBAR */
+        /* ── SIDEBAR ── */
 
         .sidebar {
             width: 280px;
@@ -57,207 +61,15 @@ function render_header(string $page_title = 'RFID Verification System'): void
             color: #fff;
             display: flex;
             flex-direction: column;
-            transition: width 0.25s ease;
             border-right: 1px solid rgba(255,255,255,0.06);
             position: relative;
             z-index: 1000;
             overflow: hidden;
-        }
-
-        .sidebar-header {
-            padding: 1.5rem;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-height: 80px;
-            white-space: nowrap;
-        }
-
-        .sidebar-logo {
-            
-            align-items: center;
-            gap: 0.75rem;
-            overflow: hidden;
-        }
-
-        .logo-icon {
-            width: 2.5rem;
-            height: 2.5rem;
-            min-width: 2.5rem;
-            border-radius: 0.875rem;
-            background: linear-gradient(135deg, #fb8500, #ffb703);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            color: #fff;
-            font-weight: 700;
-        }
-
-        .logo-text h2 {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 1rem;
-            font-weight: 700;
-            margin: 0;
-            white-space: nowrap;
-        }
-
-        .logo-text p {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.55);
-            margin-top: 0.15rem;
-            white-space: nowrap;
-        }
-
-        .sidebar-header-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
+            transition: width 0.25s ease;
             flex-shrink: 0;
         }
 
-        .toggle-btn,
-        .mobile-close {
-            background: transparent;
-            border: none;
-            color: rgba(255,255,255,0.7);
-            font-size: 1.1rem;
-            cursor: pointer;
-            padding: 0.3rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 0.5rem;
-            transition: color 0.15s ease, background 0.15s ease;
-        }
-
-        .toggle-btn:hover,
-        .mobile-close:hover {
-            color: #fff;
-            background: rgba(255,255,255,0.08);
-        }
-
-        .mobile-close {
-            display: none;
-        }
-
-        .sidebar-nav {
-            padding: 1.25rem 1rem;
-            overflow-y: auto;
-            overflow-x: hidden;
-            flex: 1;
-        }
-
-        .nav-section {
-            margin-bottom: 1.5rem;
-        }
-
-        .nav-section-title {
-            font-size: 0.6875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: rgba(255,255,255,0.4);
-            font-weight: 600;
-            padding: 0 0.85rem;
-            margin-bottom: 0.75rem;
-            white-space: nowrap;
-            overflow: hidden;
-            transition: opacity 0.2s ease;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
-            padding: 0.85rem 1rem;
-            border-radius: 1rem;
-            color: rgba(255,255,255,0.72);
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: background 0.15s ease, color 0.15s ease;
-            margin-bottom: 0.35rem;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-
-        .nav-item i {
-            font-size: 1.1rem;
-            min-width: 1.1rem;
-            flex-shrink: 0;
-        }
-
-        .nav-item span {
-            overflow: hidden;
-            transition: opacity 0.2s ease, width 0.2s ease;
-        }
-
-        .nav-item:hover {
-            background: rgba(255,255,255,0.06);
-            color: #fff;
-        }
-
-        .nav-item.active {
-            background: #ffffff;
-            color: #0f172a;
-            font-weight: 600;
-        }
-
-        .sidebar-footer {
-            padding: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.06);
-            overflow: hidden;
-        }
-
-        .admin-card {
-            background: rgba(255,255,255,0.06);
-            border-radius: 1rem;
-            padding: 1rem;
-            margin-bottom: 0.85rem;
-            white-space: nowrap;
-            overflow: hidden;
-            transition: opacity 0.2s ease, height 0.25s ease, padding 0.25s ease, margin 0.25s ease;
-        }
-
-        .admin-name {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .admin-role {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.55);
-            margin-top: 0.2rem;
-        }
-
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            width: 100%;
-            height: 2.85rem;
-            border-radius: 0.875rem;
-            background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.75);
-            font-size: 0.8125rem;
-            font-weight: 600;
-            transition: background 0.15s ease, color 0.15s ease;
-            white-space: nowrap;
-            overflow: hidden;
-        }
-
-        .logout-btn:hover {
-            background: #ef4444;
-            color: #fff;
-        }
-
-        .logout-btn i {
-            flex-shrink: 0;
-        }
-
-        /* COLLAPSED STATE */
+        /* COLLAPSED */
 
         .sidebar.collapsed {
             width: 72px;
@@ -266,19 +78,19 @@ function render_header(string $page_title = 'RFID Verification System'): void
         .sidebar.collapsed .logo-text,
         .sidebar.collapsed .nav-section-title,
         .sidebar.collapsed .nav-item span,
-        .sidebar.collapsed .logout-btn span {
+        .sidebar.collapsed .logout-btn span,
+        .sidebar.collapsed .student-card {
             opacity: 0;
             width: 0;
             overflow: hidden;
             pointer-events: none;
+            white-space: nowrap;
         }
 
-        .sidebar.collapsed .admin-card {
-            opacity: 0;
+        .sidebar.collapsed .student-card {
             height: 0;
             padding: 0;
             margin: 0;
-            pointer-events: none;
         }
 
         .sidebar.collapsed .nav-item {
@@ -293,20 +105,213 @@ function render_header(string $page_title = 'RFID Verification System'): void
 
         .sidebar.collapsed .sidebar-header {
             justify-content: center;
-            padding: 1.5rem 0.85rem;
+            flex-direction: column;
+            gap: 0.6rem;
+            padding: 1rem 0.5rem;
         }
 
-        .sidebar.collapsed .sidebar-header-actions .toggle-btn {
-            /* still visible so user can re-expand */
+        .sidebar.collapsed .sidebar-logo {
+            justify-content: center;
         }
 
-        /* MAIN */
+        /* SIDEBAR HEADER */
+
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 80px;
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            overflow: hidden;
+        }
+
+        .logo-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            min-width: 2.5rem;
+            border-radius: 0.875rem;
+            background: linear-gradient(135deg, #fb8500, #ffb703);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .logo-text h2 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .logo-text p {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 0.15rem;
+            white-space: nowrap;
+        }
+
+        .toggle-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0.3rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .toggle-btn:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.08);
+        }
+
+        /* SIDEBAR NAV */
+
+        .sidebar-nav {
+            padding: 1.25rem 1rem;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .sidebar-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: rgba(255,255,255,0.45);
+            padding: 0 0.8rem;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.85rem 1rem;
+            border-radius: 1rem;
+            color: rgba(255,255,255,0.72);
+            margin-bottom: 0.35rem;
+            transition: background 0.15s, color 0.15s;
+            font-size: 0.9rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .nav-item span {
+            transition: opacity 0.2s;
+        }
+
+        .nav-item i {
+            font-size: 1.1rem;
+            min-width: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background: #fff;
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+        /* SIDEBAR FOOTER */
+
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            overflow: hidden;
+        }
+
+        .student-card {
+            background: rgba(255,255,255,0.06);
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: opacity 0.2s, height 0.25s, padding 0.25s, margin 0.25s;
+        }
+
+        .student-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .student-role {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 0.2rem;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            height: 2.8rem;
+            border-radius: 0.875rem;
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.8);
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.15s, color 0.15s;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .logout-btn i {
+            flex-shrink: 0;
+        }
+
+        .logout-btn:hover {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        /* ── MAIN ── */
 
         .main {
             flex: 1;
             overflow-y: auto;
             background: #f8fafc;
-            transition: none;
+            min-width: 0;
         }
 
         .topbar {
@@ -327,51 +332,13 @@ function render_header(string $page_title = 'RFID Verification System'): void
             font-family: 'Plus Jakarta Sans', sans-serif;
             font-size: 1.35rem;
             font-weight: 700;
-            color: #0f172a;
             margin: 0;
-            letter-spacing: -0.02em;
         }
 
         .topbar-left p {
-            font-size: 0.8125rem;
+            font-size: 0.82rem;
             color: #94a3b8;
             margin-top: 0.2rem;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .live-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 999px;
-            padding: 0.55rem 1rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        }
-
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #22c55e;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.35; }
-        }
-
-        .live-badge span {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #475569;
         }
 
         .mobile-menu-btn {
@@ -385,19 +352,32 @@ function render_header(string $page_title = 'RFID Verification System'): void
             color: #475569;
             align-items: center;
             justify-content: center;
+            font-size: 1.1rem;
         }
 
         .content {
             padding: 1.5rem;
         }
 
-        /* OVERLAY */
+        /* ── OVERLAY ── */
 
         .sidebar-overlay {
             display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.45);
+            opacity: 0;
+            visibility: hidden;
+            transition: 0.2s ease;
+            z-index: 999;
         }
 
-        /* MOBILE */
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ── MOBILE ── */
 
         @media (max-width: 768px) {
 
@@ -431,7 +411,7 @@ function render_header(string $page_title = 'RFID Verification System'): void
                 width: auto;
             }
 
-            .sidebar.collapsed .admin-card {
+            .sidebar.collapsed .student-card {
                 opacity: 1;
                 height: auto;
                 padding: 1rem;
@@ -446,31 +426,17 @@ function render_header(string $page_title = 'RFID Verification System'): void
 
             .sidebar.collapsed .sidebar-header {
                 justify-content: space-between;
+                flex-direction: row;
                 padding: 1.5rem;
+                min-height: 80px;
             }
 
             .sidebar-overlay {
                 display: block;
-                position: fixed;
-                inset: 0;
-                background: rgba(15, 23, 42, 0.45);
-                opacity: 0;
-                visibility: hidden;
-                transition: 0.2s ease;
-                z-index: 999;
-            }
-
-            .sidebar-overlay.active {
-                opacity: 1;
-                visibility: visible;
             }
 
             .toggle-btn {
                 display: none;
-            }
-
-            .mobile-close {
-                display: flex;
             }
 
             .mobile-menu-btn {
@@ -484,224 +450,154 @@ function render_header(string $page_title = 'RFID Verification System'): void
             .content {
                 padding: 1rem;
             }
-
-            .live-badge {
-                display: none;
-            }
-        }
-        .sidebar.collapsed .sidebar-header {
-            justify-content: center;
-            padding: 1.5rem 0.5rem;
-            flex-direction: column;
-            gap: 0.75rem;
-            min-height: auto;
         }
 
-        .sidebar.collapsed .sidebar-logo {
-            justify-content: center;
-        }
-
-        .sidebar.collapsed .sidebar-header-actions {
-            justify-content: center;
-        }
-        .sidebar-nav::-webkit-scrollbar {
-            display: none;               /* Chrome/Safari */
-        }
     </style>
-
 </head>
 
 <body>
 
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-    <div class="layout">
+<div class="layout">
 
-        <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar">
 
-            <div class="sidebar-header">
+        <div class="sidebar-header">
 
-                <div class="sidebar-logo">
-                    <div class="logo-icon">
-                        <i class="bi bi-broadcast-pin"></i>
-                    </div>
-                    <div class="logo-text">
-                        <h2>RFID System</h2>
-                        <p>Verification Platform</p>
-                    </div>
+            <div class="sidebar-logo">
+                <div class="logo-icon">
+                    <i class="bi bi-person-badge"></i>
                 </div>
-
-                <div class="sidebar-header-actions">
-                    <button class="toggle-btn" id="toggleSidebar" title="Toggle sidebar">
-                        <i class="bi bi-layout-sidebar-reverse"></i>
-                    </button>
-                    <button class="mobile-close" id="closeSidebar">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
+                <div class="logo-text">
+                    <h2>Student Portal</h2>
+                    <p>RFID Attendance</p>
                 </div>
-
             </div>
 
-            <nav class="sidebar-nav">
+            <button class="toggle-btn" id="toggleSidebar" title="Toggle sidebar">
+                <i class="bi bi-layout-sidebar-reverse"></i>
+            </button>
 
-                <div class="nav-section">
-                    <div class="nav-section-title">Main</div>
+        </div>
 
-                    <a href="/views/dashboard.php" class="nav-item <?= $currentPage === 'dashboard.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-grid"></i>
-                        <span>Dashboard</span>
-                    </a>
+        <nav class="sidebar-nav">
 
-                    <a href="/views/students.php" class="nav-item <?= $currentPage === 'students.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-people"></i>
-                        <span>Students</span>
-                    </a>
+            <div class="nav-section">
 
-                    <a href="/views/register_student.php" class="nav-item <?= $currentPage === 'register_student.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-person-plus"></i>
-                        <span>Register Student</span>
-                    </a>
+                <div class="nav-section-title">Main Menu</div>
 
-                    <a href="/views/profile.php" class="nav-item <?= $currentPage === 'profile.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-person-circle"></i>
-                        <span>Profile</span>
-                    </a>
-                </div>
-
-                <div class="nav-section">
-                    <div class="nav-section-title">Attendance</div>
-
-                    <a href="/views/attendance/attendance_logs.php" class="nav-item <?= $currentPage === 'attendance_logs.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Attendance Logs</span>
-                    </a>
-
-                    <a href="/views/attendance/attendance_sessions.php" class="nav-item <?= $currentPage === 'attendance_sessions.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-calendar2-week"></i>
-                        <span>Sessions</span>
-                    </a>
-
-                    <a href="/views/attendance/attendance_reports.php" class="nav-item <?= $currentPage === 'attendance_reports.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-bar-chart"></i>
-                        <span>Reports</span>
-                    </a>
-                </div>
-
-                <?php if ($isSuperAdmin): ?>
-                <div class="nav-section">
-                    <div class="nav-section-title">Administration</div>
-
-                    <a href="/views/manage_admins.php" class="nav-item <?= $currentPage === 'manage_admins.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-person-gear"></i>
-                        <span>Manage Admins</span>
-                    </a>
-
-                    <a href="/views/manage_departments.php" class="nav-item <?= $currentPage === 'manage_departments.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-building"></i>
-                        <span>Departments</span>
-                    </a>
-
-                    <a href="/views/activity_logs.php" class="nav-item <?= $currentPage === 'activity_logs.php' ? 'active' : ''; ?>">
-                        <i class="bi bi-activity"></i>
-                        <span>Activity Logs</span>
-                    </a>
-                </div>
-                <?php endif; ?>
-
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="admin-card">
-                    <div class="admin-name"><?= htmlspecialchars($userFullname); ?></div>
-                    <div class="admin-role"><?= htmlspecialchars($userDept); ?></div>
-                </div>
-
-                <a href="/logout.php" class="logout-btn">
-                    <i class="bi bi-box-arrow-right"></i>
-                    <span>Logout</span>
+                <a href="/views/user/dashboard.php"
+                   class="nav-item <?= $currentPage === 'dashboard.php' ? 'active' : ''; ?>">
+                    <i class="bi bi-grid"></i>
+                    <span>Dashboard</span>
                 </a>
+
+                <a href="/views/user/attendance_history.php"
+                   class="nav-item <?= $currentPage === 'attendance_history.php' ? 'active' : ''; ?>">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Attendance History</span>
+                </a>
+
+                <a href="/views/user/profile.php"
+                   class="nav-item <?= $currentPage === 'profile.php' ? 'active' : ''; ?>">
+                    <i class="bi bi-person-circle"></i>
+                    <span>Profile</span>
+                </a>
+
             </div>
 
-        </aside>
+        </nav>
 
-        <main class="main">
+        <div class="sidebar-footer">
 
-            <div class="topbar">
-                <div class="topbar-left">
-                    <h1><?= htmlspecialchars($page_title); ?></h1>
-                    <p><?= date('l, F j, Y'); ?></p>
-                </div>
-                <div class="topbar-right">
-                    <div class="live-badge">
-                        <span class="live-dot"></span>
-                        <span>Live System</span>
-                    </div>
-                    <button class="mobile-menu-btn" id="openSidebar">
-                        <i class="bi bi-list"></i>
-                    </button>
-                </div>
+            <div class="student-card">
+                <div class="student-name"><?= htmlspecialchars($studentName); ?></div>
+                <div class="student-role">Student Account</div>
             </div>
 
-            <div class="content">
+            <a href="/student_logout.php" class="logout-btn">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+    <main class="main">
+
+        <div class="topbar">
+            <div class="topbar-left">
+                <h1><?= htmlspecialchars($page_title); ?></h1>
+                <p><?= date('l, F j, Y'); ?></p>
+            </div>
+            <div>
+                <button class="mobile-menu-btn" id="openSidebar">
+                    <i class="bi bi-list"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="content">
 
 <?php
 }
 
-function render_footer(): void
+function render_student_footer(): void
 {
 ?>
-            </div>
-        </main>
-    </div>
+        </div>
+    </main>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
 
-        const sidebar        = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        const openSidebar    = document.getElementById('openSidebar');
-        const closeSidebar   = document.getElementById('closeSidebar');
-        const toggleSidebar  = document.getElementById('toggleSidebar');
+    const sidebar        = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const openSidebar    = document.getElementById('openSidebar');
+    const toggleSidebar  = document.getElementById('toggleSidebar');
 
-        // Restore collapsed state on page load
-        if (localStorage.getItem('sidebarCollapsed') === 'true') {
-            sidebar.classList.add('collapsed');
-        }
+    // Restore collapsed state on page load
+    if (localStorage.getItem('studentSidebarCollapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+    }
 
-        // Toggle collapse
-        if (toggleSidebar) {
-            toggleSidebar.addEventListener('click', () => {
-                sidebar.classList.toggle('collapsed');
-                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-            });
-        }
+    // Desktop toggle collapse
+    if (toggleSidebar) {
+        toggleSidebar.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            localStorage.setItem(
+                'studentSidebarCollapsed',
+                sidebar.classList.contains('collapsed')
+            );
+        });
+    }
 
-        // Mobile open
-        if (openSidebar) {
-            openSidebar.addEventListener('click', () => {
-                sidebar.classList.add('active');
-                sidebarOverlay.classList.add('active');
-            });
-        }
+    // Mobile open
+    if (openSidebar) {
+        openSidebar.addEventListener('click', () => {
+            sidebar.classList.add('active');
+            sidebarOverlay.classList.add('active');
+        });
+    }
 
-        // Mobile close
-        if (closeSidebar) {
-            closeSidebar.addEventListener('click', closeSidebarMenu);
-        }
+    // Mobile close via overlay
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebarMenu);
+    }
 
-        if (sidebarOverlay) {
-            sidebarOverlay.addEventListener('click', closeSidebarMenu);
-        }
+    function closeSidebarMenu() {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+    }
 
-        function closeSidebarMenu() {
-            sidebar.classList.remove('active');
-            sidebarOverlay.classList.remove('active');
-        }
-
-    </script>
+</script>
 
 </body>
 </html>
+
 <?php
 }
 ?>

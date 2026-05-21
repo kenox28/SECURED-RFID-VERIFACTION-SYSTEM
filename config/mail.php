@@ -4,9 +4,9 @@
 
 define('MAIL_HOST', 'smtp.gmail.com');
 define('MAIL_PORT', 465);
-define('MAIL_USERNAME', 'your-email@gmail.com');
-define('MAIL_PASSWORD', 'your-app-password');
-define('MAIL_FROM_EMAIL', 'your-email@gmail.com');
+define('MAIL_USERNAME', 'ebakunado.linaohealthcenter@gmail.com');
+define('MAIL_PASSWORD', 'yhfd becn tywa ncyy');
+define('MAIL_FROM_EMAIL', 'ebakunado.linaohealthcenter@gmail.com');
 define('MAIL_FROM_NAME', 'RFID Attendance System');
 define('MAIL_ENCRYPTION', 'ssl');
 

@@ -197,16 +197,16 @@ try {
             $mail->SMTPAuth   = true;
 
             // YOUR GMAIL
-            $mail->Username   = 'iquenxzx@gmail.com';
+            $mail->Username   = 'ebakunado.linaohealthcenter@gmail.com';
 
             // YOUR GMAIL APP PASSWORD
-            $mail->Password   = 'lews hdga hdvb glym';
+            $mail->Password   = 'yhfd becn tywa ncyy';
 
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
             $mail->Port       = 465;
 
             // Sender
-            $mail->setFrom('iquenxzx@gmail.com', 'RFID Attendance System');
+            $mail->setFrom('ebakunado.linaohealthcenter@gmail.com', 'RFID Attendance System');
 
             // Student Email
             $mail->addAddress(
