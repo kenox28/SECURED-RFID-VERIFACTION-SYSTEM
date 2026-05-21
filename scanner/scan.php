@@ -2,14 +2,11 @@
 // scanner/scan.php
 require_once '../config/database.php';
 
-// Fetch active sessions for the dropdown (if any)
 $activeSessions = [];
 try {
     $s = $pdo->query("SELECT id, session_name, attendance_type FROM attendance_sessions WHERE status = 'ACTIVE' ORDER BY created_at DESC");
     $activeSessions = $s->fetchAll();
-} catch (Exception $e) {
-    // silently fail — scanner still works without pre-selected session
-}
+} catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -17,498 +14,627 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Scanner</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg:        #080c14;
-            --surface:   #0d1420;
-            --card:      #111b2e;
-            --border:    #1e3a5f;
-            --accent:    #00d4ff;
-            --accent2:   #0066ff;
-            --success:   #00ff88;
-            --error:     #ff3366;
-            --warning:   #ffaa00;
-            --text:      #e8f4fd;
-            --muted:     #4a7a9b;
-            --glow:      0 0 20px rgba(0,212,255,.35);
-            --glow-lg:   0 0 60px rgba(0,212,255,.2);
+            --bg:         #09090b;
+            --surface:    #111114;
+            --card:       #18181b;
+            --border:     rgba(255,255,255,0.07);
+            --border-hi:  rgba(255,255,255,0.14);
+            --accent:     #f97316;
+            --accent-dim: rgba(249,115,22,0.12);
+            --accent-glow:rgba(249,115,22,0.35);
+            --green:      #22c55e;
+            --green-dim:  rgba(34,197,94,0.12);
+            --red:        #ef4444;
+            --red-dim:    rgba(239,68,68,0.12);
+            --yellow:     #eab308;
+            --yellow-dim: rgba(234,179,8,0.12);
+            --text:       #fafafa;
+            --text-2:     #a1a1aa;
+            --text-3:     #52525b;
+            --radius:     16px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background: var(--bg);
             color: var(--text);
-            font-family: 'Exo 2', sans-serif;
+            font-family: 'Space Grotesk', sans-serif;
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
+            padding: 24px 16px;
             overflow-x: hidden;
         }
 
-        /* Animated grid background */
+        /* subtle dot grid */
         body::before {
             content: '';
             position: fixed; inset: 0;
-            background-image:
-                linear-gradient(rgba(0,212,255,.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,212,255,.04) 1px, transparent 1px);
-            background-size: 40px 40px;
+            background-image: radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+            background-size: 28px 28px;
             pointer-events: none;
             z-index: 0;
         }
 
-        .page-wrap {
+        /* warm glow blob */
+        body::after {
+            content: '';
+            position: fixed;
+            width: 600px; height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(249,115,22,0.06) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrap {
             position: relative; z-index: 1;
-            width: 100%; max-width: 900px;
-            padding: 24px 16px;
+            width: 100%; max-width: 480px;
             display: flex;
             flex-direction: column;
-            gap: 24px;
+            gap: 16px;
+        }
+
+        /* ── TOP BAR ── */
+        .top-bar {
+            display: flex;
             align-items: center;
+            justify-content: space-between;
         }
 
-        /* ── Header ── */
-        .header {
-            text-align: center;
-        }
-        .header h1 {
-            font-family: 'Orbitron', monospace;
-            font-size: clamp(1.4rem, 4vw, 2.2rem);
-            font-weight: 900;
-            letter-spacing: 4px;
-            color: var(--accent);
-            text-shadow: var(--glow);
-            text-transform: uppercase;
-        }
-        .header p {
-            color: var(--muted);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .85rem;
-            letter-spacing: 2px;
-            margin-top: 4px;
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* ── Clock ── */
-        .clock-wrap {
-            text-align: center;
-        }
-        #clock {
-            font-family: 'Orbitron', monospace;
-            font-size: clamp(2.5rem, 8vw, 4.5rem);
-            font-weight: 700;
-            color: var(--accent);
-            text-shadow: var(--glow-lg);
-            letter-spacing: 6px;
-        }
-        #date-display {
-            font-family: 'Share Tech Mono', monospace;
-            color: var(--muted);
-            font-size: .9rem;
-            letter-spacing: 3px;
-            margin-top: 4px;
+        .brand-icon {
+            width: 36px; height: 36px;
+            border-radius: 10px;
+            background: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
         }
 
-        /* ── Session info strip ── */
-        #session-strip {
+        .brand-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+
+        .brand-sub {
+            font-size: 0.7rem;
+            color: var(--text-3);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .live-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--green-dim);
+            border: 1px solid rgba(34,197,94,0.2);
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--green);
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.05em;
+        }
+
+        .live-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%,100% { opacity: 1; }
+            50%      { opacity: 0.2; }
+        }
+
+        /* ── CLOCK CARD ── */
+        .clock-card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .85rem;
-            color: var(--muted);
+            border-radius: var(--radius);
+            padding: 28px 24px;
             text-align: center;
-            width: 100%;
-            max-width: 520px;
-        }
-        #session-strip span { color: var(--accent); font-weight: 700; }
-
-        /* ── Scanner box ── */
-        .scanner-box {
-            background: var(--surface);
-            border: 2px solid var(--border);
-            border-radius: 16px;
-            padding: 32px 28px;
-            width: 100%; max-width: 520px;
-            box-shadow: 0 8px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);
             position: relative;
-        }
-        .scanner-box::before {
-            content: '';
-            position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-            width: 60%; height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
-            border-radius: 2px;
+            overflow: hidden;
         }
 
-        .scan-label {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .75rem;
-            letter-spacing: 3px;
-            color: var(--muted);
+        .clock-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%; transform: translateX(-50%);
+            width: 40%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        }
+
+        #clock {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: clamp(2.8rem, 10vw, 4rem);
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+
+        #clock .colon {
+            color: var(--accent);
+            animation: colonBlink 1s step-end infinite;
+        }
+
+        @keyframes colonBlink {
+            0%,100% { opacity: 1; }
+            50%      { opacity: 0.25; }
+        }
+
+        #date-display {
+            font-size: 0.78rem;
+            color: var(--text-3);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 8px;
+            letter-spacing: 0.04em;
+        }
+
+        /* ── SESSION PILL ── */
+        .session-row {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8rem;
+        }
+
+        .session-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .session-label {
+            color: var(--text-2);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+        }
+
+        .session-name {
+            color: var(--text);
+            font-weight: 600;
+            margin-left: auto;
+        }
+
+        .session-type {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* ── SCANNER CARD ── */
+        .scanner-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .scan-label-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .scan-label-text {
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-3);
+            letter-spacing: 0.08em;
             text-transform: uppercase;
-            margin-bottom: 10px;
+        }
+
+        .scan-indicator {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--text-3);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .scan-indicator.active {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
         }
 
         #rfid_input {
             width: 100%;
-            background: var(--bg);
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            color: var(--accent);
-            font-family: 'Orbitron', monospace;
+            background: var(--card);
+            border: 1.5px solid var(--border-hi);
+            border-radius: 12px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
             font-size: 1.1rem;
-            letter-spacing: 4px;
-            padding: 14px 18px;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            padding: 16px 20px;
             text-align: center;
             outline: none;
-            transition: border-color .2s, box-shadow .2s;
+            transition: border-color 0.2s, box-shadow 0.2s;
             caret-color: var(--accent);
         }
+
         #rfid_input:focus {
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0,212,255,.15), var(--glow);
+            box-shadow: 0 0 0 3px var(--accent-dim);
         }
-        #rfid_input::placeholder { color: var(--muted); font-size: .85rem; letter-spacing: 2px; }
 
-        /* scanning animation bar */
-        .scan-bar {
-            height: 3px;
+        #rfid_input::placeholder {
+            color: var(--text-3);
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        /* progress track */
+        .progress-track {
+            height: 2px;
             background: var(--border);
-            border-radius: 3px;
+            border-radius: 2px;
             margin-top: 14px;
             overflow: hidden;
         }
-        .scan-bar-inner {
+
+        .progress-fill {
             height: 100%;
             width: 0;
-            background: linear-gradient(90deg, var(--accent2), var(--accent));
-            border-radius: 3px;
-            transition: width .3s;
+            background: linear-gradient(90deg, var(--accent), #fb923c);
+            border-radius: 2px;
+            transition: width 0.2s;
         }
-        .scan-bar-inner.active { animation: scanAnim 1s ease-in-out infinite; width: 100%; }
-        @keyframes scanAnim {
+
+        .progress-fill.scanning {
+            width: 100%;
+            animation: sweep 0.9s ease-in-out infinite;
+        }
+
+        @keyframes sweep {
             0%   { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
         }
 
-        /* ── Status message ── */
+        /* status */
         #status-msg {
-            margin-top: 18px;
+            margin-top: 14px;
             text-align: center;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 1rem;
-            letter-spacing: 1px;
-            min-height: 28px;
-            transition: color .3s;
+            font-size: 0.82rem;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.03em;
+            color: var(--text-3);
+            min-height: 22px;
+            transition: color 0.25s;
         }
-        #status-msg.ok      { color: var(--success); }
-        #status-msg.fail    { color: var(--error); }
-        #status-msg.warn    { color: var(--warning); }
-        #status-msg.neutral { color: var(--muted); }
 
-        /* ── Student ID Card ── */
+        #status-msg.ok   { color: var(--green); }
+        #status-msg.fail { color: var(--red); }
+        #status-msg.warn { color: var(--yellow); }
+
+        /* ── RESULT CARD ── */
         #card-wrap {
             display: none;
-            width: 100%; max-width: 520px;
-            animation: cardIn .4s cubic-bezier(.34,1.56,.64,1) both;
-        }
-        @keyframes cardIn {
-            from { opacity:0; transform: translateY(20px) scale(.97); }
-            to   { opacity:1; transform: translateY(0)   scale(1); }
+            animation: riseIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
         }
 
-        .id-card {
-            background: linear-gradient(135deg, #0d1f3c 0%, #0a1628 60%, #061020 100%);
-            border: 2px solid var(--accent);
-            border-radius: 20px;
+        @keyframes riseIn {
+            from { opacity:0; transform:translateY(16px) scale(0.97); }
+            to   { opacity:1; transform:translateY(0) scale(1); }
+        }
+
+        .result-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             overflow: hidden;
-            box-shadow: 0 0 40px rgba(0,212,255,.25), 0 20px 60px rgba(0,0,0,.6);
-            position: relative;
-        }
-        .id-card::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(135deg, rgba(0,212,255,.04) 0%, transparent 50%);
-            pointer-events: none;
         }
 
-        /* card top stripe */
-        .card-stripe {
-            background: linear-gradient(90deg, var(--accent2), var(--accent));
-            padding: 12px 24px;
+        /* coloured top line */
+        .result-card.success { border-top: 2px solid var(--green); }
+        .result-card.error   { border-top: 2px solid var(--red); }
+        .result-card.warning { border-top: 2px solid var(--yellow); }
+
+        .rc-header {
+            padding: 14px 20px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            border-bottom: 1px solid var(--border);
         }
-        .card-stripe .school-name {
-            font-family: 'Orbitron', monospace;
-            font-size: .75rem;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-        .card-stripe .card-type-badge {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .7rem;
-            background: rgba(255,255,255,.2);
-            color: #fff;
-            padding: 3px 10px;
-            border-radius: 20px;
-            letter-spacing: 1px;
-        }
-        .card-type-badge.IN  { background: rgba(0,255,136,.25); color: var(--success); }
-        .card-type-badge.OUT { background: rgba(255,51,102,.25); color: var(--error); }
 
-        /* card body */
-        .card-body {
+        .rc-header-left {
             display: flex;
-            gap: 20px;
-            padding: 20px 24px;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rc-status-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px;
+        }
+
+        .rc-status-icon.success { background: var(--green-dim); }
+        .rc-status-icon.error   { background: var(--red-dim); }
+        .rc-status-icon.warning { background: var(--yellow-dim); }
+
+        .rc-status-text {
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.04em;
+        }
+
+        .rc-status-text.success { color: var(--green); }
+        .rc-status-text.error   { color: var(--red); }
+        .rc-status-text.warning { color: var(--yellow); }
+
+        .rc-time {
+            font-size: 0.72rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-3);
+        }
+
+        /* student info section */
+        .rc-body {
+            padding: 20px;
+            display: flex;
+            gap: 16px;
             align-items: flex-start;
         }
 
-        /* photo */
-        .card-photo-wrap {
-            flex-shrink: 0;
-        }
-        .card-photo {
-            width: 100px;
-            height: 120px;
+        .rc-photo {
+            width: 72px; height: 86px;
             border-radius: 10px;
-            border: 2px solid var(--accent);
             object-fit: cover;
-            background: var(--bg);
-            box-shadow: 0 0 20px rgba(0,212,255,.3);
+            border: 1px solid var(--border-hi);
+            flex-shrink: 0;
+            background: var(--card);
         }
-        .card-photo-placeholder {
-            width: 100px;
-            height: 120px;
+
+        .rc-photo-placeholder {
+            width: 72px; height: 86px;
             border-radius: 10px;
-            border: 2px solid var(--border);
-            background: var(--bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--muted);
-            font-size: 2.5rem;
+            border: 1px solid var(--border);
+            background: var(--card);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+            color: var(--text-3);
         }
 
-        /* info section */
-        .card-info { flex: 1; min-width: 0; }
+        .rc-info { flex: 1; min-width: 0; }
 
-        .card-name {
-            font-family: 'Exo 2', sans-serif;
-            font-size: clamp(1.1rem, 3vw, 1.35rem);
+        .rc-name {
+            font-size: 1.05rem;
             font-weight: 700;
-            color: #fff;
-            line-height: 1.2;
-            margin-bottom: 4px;
-        }
-        .card-student-id {
-            font-family: 'Orbitron', monospace;
-            font-size: .75rem;
-            color: var(--accent);
-            letter-spacing: 2px;
-            margin-bottom: 14px;
+            color: var(--text);
+            letter-spacing: -0.01em;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .card-fields {
+        .rc-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            color: var(--accent);
+            margin-bottom: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        .rc-fields {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 8px 16px;
+            gap: 8px;
         }
-        .card-field label {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .65rem;
-            color: var(--muted);
-            letter-spacing: 2px;
+
+        .rc-field label {
+            font-size: 0.63rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-3);
             text-transform: uppercase;
+            letter-spacing: 0.06em;
             display: block;
             margin-bottom: 2px;
         }
-        .card-field span {
-            font-size: .85rem;
-            color: var(--text);
-            font-weight: 600;
+
+        .rc-field span {
+            font-size: 0.8rem;
+            color: var(--text-2);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
         }
 
-        /* scan result footer */
-        .card-footer {
-            border-top: 1px solid var(--border);
-            padding: 12px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .scan-time-label {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .75rem;
-            color: var(--muted);
-            letter-spacing: 1px;
-        }
-        #scan-timestamp {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .8rem;
-            color: var(--accent);
-        }
-        .result-badge {
-            font-family: 'Orbitron', monospace;
-            font-size: .8rem;
+        /* session type tag in card */
+        .rc-type-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
             font-weight: 700;
-            padding: 5px 16px;
-            border-radius: 20px;
-            letter-spacing: 2px;
+            padding: 3px 8px;
+            border-radius: 5px;
+            letter-spacing: 0.04em;
         }
-        .result-badge.success { background: rgba(0,255,136,.15); color: var(--success); border: 1px solid var(--success); }
-        .result-badge.error   { background: rgba(255,51,102,.15); color: var(--error);   border: 1px solid var(--error); }
-        .result-badge.warning { background: rgba(255,170,0,.15);  color: var(--warning); border: 1px solid var(--warning); }
 
-        /* ── Focus refocus note ── */
-        .refocus-note {
-            font-family: 'Share Tech Mono', monospace;
-            font-size: .75rem;
-            color: var(--muted);
-            letter-spacing: 2px;
+        .rc-type-tag.IN  { background: var(--green-dim); color: var(--green); }
+        .rc-type-tag.OUT { background: var(--red-dim);   color: var(--red); }
+        .rc-type-tag.default { background: var(--accent-dim); color: var(--accent); }
+
+        /* ── REFOCUS ── */
+        .refocus {
             text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-3);
             cursor: pointer;
-            text-decoration: underline dotted;
+            letter-spacing: 0.04em;
+            transition: color 0.15s;
+            padding: 4px 0;
         }
-        .refocus-note:hover { color: var(--accent); }
+
+        .refocus:hover { color: var(--accent); }
     </style>
 </head>
 <body>
-<div class="page-wrap">
+<div class="wrap">
 
-    <!-- Header -->
-    <div class="header">
-        <h1>RFID Attendance System</h1>
-        <p>// SCAN TERMINAL — READY</p>
+    <!-- Top bar -->
+    <div class="top-bar">
+        <div class="brand">
+            <div class="brand-icon">📡</div>
+            <div>
+                <div class="brand-name">RFID System</div>
+                <div class="brand-sub">Attendance Terminal</div>
+            </div>
+        </div>
+        <div class="live-pill">
+            <div class="live-dot"></div>
+            LIVE
+        </div>
     </div>
 
     <!-- Clock -->
-    <div class="clock-wrap">
-        <div id="clock">00:00:00</div>
+    <div class="clock-card">
+        <div id="clock"><span id="h">00</span><span class="colon">:</span><span id="m">00</span><span class="colon">:</span><span id="s">00</span></div>
         <div id="date-display">--</div>
     </div>
 
-    <!-- Active session info -->
-    <div id="session-strip">
+    <!-- Session -->
+    <div class="session-row">
+        <div class="session-dot"></div>
+        <div class="session-label">SESSION</div>
         <?php if (!empty($activeSessions)): ?>
-            Active Session: <span><?= htmlspecialchars($activeSessions[0]['session_name']) ?></span>
-            &nbsp;|&nbsp; Type: <span><?= htmlspecialchars($activeSessions[0]['attendance_type']) ?></span>
+            <div class="session-name"><?= htmlspecialchars($activeSessions[0]['session_name']) ?></div>
+            <div class="session-type"><?= htmlspecialchars($activeSessions[0]['attendance_type']) ?></div>
         <?php else: ?>
-            No active session — contact administrator
+            <div class="session-name" style="color:var(--text-3)">No active session</div>
         <?php endif; ?>
     </div>
 
-    <!-- Scanner input -->
-    <div class="scanner-box">
-        <div class="scan-label">// Scan RFID Card or QR Code</div>
+    <!-- Scanner -->
+    <div class="scanner-card">
+        <div class="scan-label-row">
+            <div class="scan-label-text">RFID / QR Input</div>
+            <div class="scan-indicator" id="scan-indicator"></div>
+        </div>
         <input
             type="text"
             id="rfid_input"
-            placeholder="Waiting for scan..."
+            placeholder="Waiting for card scan..."
             autocomplete="off"
             autofocus
         >
-        <div class="scan-bar"><div class="scan-bar-inner" id="scan-bar-inner"></div></div>
-        <div id="status-msg" class="neutral">Ready — place card on reader</div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div id="status-msg">Ready — place card on reader</div>
     </div>
 
-    <!-- Student ID Card (shown after scan) -->
+    <!-- Result card -->
     <div id="card-wrap">
-        <div class="id-card" id="id-card">
-            <div class="card-stripe">
-                <div class="school-name">Student Identification</div>
-                <div class="card-type-badge" id="card-type-badge">--</div>
-            </div>
-            <div class="card-body">
-                <div class="card-photo-wrap" id="photo-wrap">
-                    <div class="card-photo-placeholder">👤</div>
+        <div class="result-card" id="result-card">
+            <div class="rc-header">
+                <div class="rc-header-left">
+                    <div class="rc-status-icon" id="rc-icon">—</div>
+                    <div class="rc-status-text" id="rc-status-text">—</div>
                 </div>
-                <div class="card-info">
-                    <div class="card-name" id="card-name">—</div>
-                    <div class="card-student-id" id="card-sid">—</div>
-                    <div class="card-fields">
-                        <div class="card-field">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="rc-type-tag default" id="rc-type-tag">—</div>
+                    <div class="rc-time" id="rc-time">—</div>
+                </div>
+            </div>
+            <div class="rc-body">
+                <div id="rc-photo-wrap">
+                    <div class="rc-photo-placeholder">👤</div>
+                </div>
+                <div class="rc-info">
+                    <div class="rc-name" id="rc-name">—</div>
+                    <div class="rc-id"   id="rc-id">—</div>
+                    <div class="rc-fields">
+                        <div class="rc-field">
                             <label>Course</label>
-                            <span id="card-course">—</span>
+                            <span id="rc-course">—</span>
                         </div>
-                        <div class="card-field">
-                            <label>Year &amp; Section</label>
-                            <span id="card-year-sec">—</span>
+                        <div class="rc-field">
+                            <label>Year / Section</label>
+                            <span id="rc-year-sec">—</span>
                         </div>
-                        <div class="card-field">
+                        <div class="rc-field">
                             <label>Email</label>
-                            <span id="card-email">—</span>
+                            <span id="rc-email">—</span>
                         </div>
-                        <div class="card-field">
+                        <div class="rc-field">
                             <label>Contact</label>
-                            <span id="card-contact">—</span>
+                            <span id="rc-contact">—</span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="card-footer">
-                <div>
-                    <div class="scan-time-label">SCANNED AT</div>
-                    <div id="scan-timestamp">—</div>
-                </div>
-                <div class="result-badge" id="result-badge">—</div>
-            </div>
         </div>
     </div>
 
-    <!-- Tap to refocus -->
-    <div class="refocus-note" onclick="refocus()">
-        ⚡ Click here if scanner stops responding
-    </div>
+    <!-- Refocus -->
+    <div class="refocus" onclick="refocus()">⚡ Click here if scanner stops responding</div>
 
 </div>
 
 <script>
-// ─── Clock ───────────────────────────────────────────────────────────────────
+// ── Clock ──
 function updateClock() {
     const now = new Date();
-    document.getElementById('clock').textContent =
-        now.toLocaleTimeString('en-US', { hour12: false });
+    const pad = n => String(n).padStart(2,'0');
+    document.getElementById('h').textContent = pad(now.getHours());
+    document.getElementById('m').textContent = pad(now.getMinutes());
+    document.getElementById('s').textContent = pad(now.getSeconds());
     document.getElementById('date-display').textContent =
         now.toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-// ─── Auto-refocus ─────────────────────────────────────────────────────────────
-// RFID scanners need the input to always be focused.
+// ── Focus ──
 const rfidInput = document.getElementById('rfid_input');
-
-function refocus() {
-    rfidInput.focus();
-}
-// Refocus whenever user clicks anywhere on the page
-document.addEventListener('click', function(e) {
-    if (e.target.id !== 'rfid_input') refocus();
-});
-// Also refocus every 3 seconds in case something stole focus
+function refocus() { rfidInput.focus(); }
+document.addEventListener('click', e => { if (e.target.id !== 'rfid_input') refocus(); });
 setInterval(refocus, 3000);
 
-// ─── Determine correct base path ────────────────────────────────────────────
-// Works whether scan.php lives at /scanner/scan.php or /scan.php etc.
-const PROCESS_URL = (function() {
+// ── Process URL ──
+const PROCESS_URL = (() => {
     const loc = window.location.pathname;
-    // strip the filename, keep the directory
-    const dir = loc.substring(0, loc.lastIndexOf('/') + 1);
-    return dir + 'process_scan.php';
+    return loc.substring(0, loc.lastIndexOf('/') + 1) + 'process_scan.php';
 })();
 
-// ─── Scanner input — wait for Enter key (how real RFID readers work) ─────────
-let buffer = '';
+// ── Input handling ──
 let debounceTimer = null;
 
 rfidInput.addEventListener('keydown', function(e) {
@@ -516,17 +642,14 @@ rfidInput.addEventListener('keydown', function(e) {
         e.preventDefault();
         const val = rfidInput.value.trim();
         rfidInput.value = '';
-        if (val.length > 0) {
-            processScan(val);
-        }
+        if (val.length > 0) processScan(val);
     }
 });
 
-// Fallback: some readers don't send Enter — use a 200ms debounce instead
 rfidInput.addEventListener('input', function() {
     clearTimeout(debounceTimer);
     const val = rfidInput.value.trim();
-    if (val.length >= 4) {  // minimum UID length
+    if (val.length >= 4) {
         debounceTimer = setTimeout(() => {
             const current = rfidInput.value.trim();
             rfidInput.value = '';
@@ -535,126 +658,113 @@ rfidInput.addEventListener('input', function() {
     }
 });
 
-// ─── Process scan ─────────────────────────────────────────────────────────────
+// ── Scan ──
 async function processScan(rfid_uid) {
     setStatus('Processing...', 'neutral');
-    startScanBar();
+    setScanActive(true);
 
     try {
-        const response = await fetch(PROCESS_URL, {
+        const res = await fetch(PROCESS_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                rfid_uid:   rfid_uid,
-                scan_method: 'RFID'
-            })
+            body: JSON.stringify({ rfid_uid, scan_method: 'RFID' })
         });
 
-        if (!response.ok) {
-            throw new Error('Server returned HTTP ' + response.status);
-        }
-
-        const result = await response.json();
-        stopScanBar();
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const result = await res.json();
+        setScanActive(false);
         handleResult(result);
-
     } catch (err) {
-        stopScanBar();
-        setStatus('⚠ Network error — ' + err.message, 'fail');
-        console.error('Scan error:', err);
+        setScanActive(false);
+        setStatus('Network error — ' + err.message, 'fail');
     }
 
-    // Always refocus after processing
     setTimeout(refocus, 100);
 }
 
-// ─── Handle server result ────────────────────────────────────────────────────
 function handleResult(result) {
-    const card  = result.student;
+    const card = result.student;
 
     if (result.success) {
-        setStatus('✔ ' + result.message, 'ok');
+        setStatus('✓ ' + result.message, 'ok');
         if (card) showCard(card, result.session, 'success');
     } else {
-        // Codes that still show the student card
-        const showCardCodes = ['DUPLICATE_SCAN', 'INACTIVE_STUDENT', 'NO_ACTIVE_SESSION'];
-        const msgClass = result.code === 'DUPLICATE_SCAN' ? 'warn' : 'fail';
-
-        setStatus('✖ ' + result.message, msgClass);
-
-        if (card && showCardCodes.includes(result.code)) {
-            const badgeType = result.code === 'DUPLICATE_SCAN' ? 'warning' : 'error';
-            showCard(card, result.session || null, badgeType);
+        const showCodes = ['DUPLICATE_SCAN', 'INACTIVE_STUDENT', 'NO_ACTIVE_SESSION'];
+        const cls = result.code === 'DUPLICATE_SCAN' ? 'warn' : 'fail';
+        setStatus('✕ ' + result.message, cls);
+        if (card && showCodes.includes(result.code)) {
+            showCard(card, result.session || null, result.code === 'DUPLICATE_SCAN' ? 'warning' : 'error');
         } else {
             hideCard();
         }
     }
 
-    // Auto-clear the status message after 8 seconds
     setTimeout(() => {
         setStatus('Ready — place card on reader', 'neutral');
         hideCard();
     }, 8000);
 }
 
-// ─── UI Helpers ──────────────────────────────────────────────────────────────
+// ── UI helpers ──
 function setStatus(msg, cls) {
     const el = document.getElementById('status-msg');
     el.textContent = msg;
     el.className = cls;
 }
 
-function startScanBar() {
-    document.getElementById('scan-bar-inner').classList.add('active');
-}
-function stopScanBar() {
-    document.getElementById('scan-bar-inner').classList.remove('active');
+function setScanActive(on) {
+    const ind  = document.getElementById('scan-indicator');
+    const prog = document.getElementById('progress-fill');
+    ind.classList.toggle('active', on);
+    prog.classList.toggle('scanning', on);
 }
 
-function showCard(student, session, badgeType) {
-    // Photo
-    const photoWrap = document.getElementById('photo-wrap');
+function showCard(student, session, type) {
+    // photo
+    const pw = document.getElementById('rc-photo-wrap');
     if (student.photo_url) {
-        photoWrap.innerHTML = `<img class="card-photo" src="${escHtml(student.photo_url)}" alt="Student Photo" onerror="this.parentElement.innerHTML='<div class=\\'card-photo-placeholder\\'>👤</div>'">`;
+        pw.innerHTML = `<img class="rc-photo" src="${esc(student.photo_url)}" alt="Photo" onerror="this.outerHTML='<div class=\\'rc-photo-placeholder\\'>👤</div>'">`;
     } else {
-        photoWrap.innerHTML = '<div class="card-photo-placeholder">👤</div>';
+        pw.innerHTML = '<div class="rc-photo-placeholder">👤</div>';
     }
 
-    // Core info
-    document.getElementById('card-name').textContent   = student.full_name;
-    document.getElementById('card-sid').textContent    = 'ID: ' + student.student_id;
-    document.getElementById('card-course').textContent = student.course;
-    document.getElementById('card-year-sec').textContent = student.year_level + ' — ' + student.section;
-    document.getElementById('card-email').textContent   = student.email || '—';
-    document.getElementById('card-contact').textContent = student.contact_number || '—';
+    document.getElementById('rc-name').textContent    = student.full_name;
+    document.getElementById('rc-id').textContent      = student.student_id;
+    document.getElementById('rc-course').textContent  = student.course;
+    document.getElementById('rc-year-sec').textContent = student.year_level + ' · ' + student.section;
+    document.getElementById('rc-email').textContent   = student.email || '—';
+    document.getElementById('rc-contact').textContent = student.contact_number || '—';
+    document.getElementById('rc-time').textContent    = new Date().toLocaleTimeString('en-US', { hour12: false });
 
-    // Scan timestamp
-    document.getElementById('scan-timestamp').textContent =
-        new Date().toLocaleTimeString('en-US', { hour12: false });
+    // status icon + text
+    const icons   = { success: '✓', error: '✕', warning: '⚠' };
+    const labels  = { success: 'RECORDED', error: 'FAILED', warning: 'DUPLICATE' };
 
-    // Type badge (IN / OUT from session)
-    const typeBadge = document.getElementById('card-type-badge');
+    const icon = document.getElementById('rc-icon');
+    icon.textContent  = icons[type] || '—';
+    icon.className    = 'rc-status-icon ' + type;
+
+    const stxt = document.getElementById('rc-status-text');
+    stxt.textContent = labels[type] || '—';
+    stxt.className   = 'rc-status-text ' + type;
+
+    // result card border colour
+    document.getElementById('result-card').className = 'result-card ' + type;
+
+    // session type tag
+    const tag = document.getElementById('rc-type-tag');
     if (session && session.attendance_type) {
-        typeBadge.textContent = session.attendance_type;
-        typeBadge.className   = 'card-type-badge ' + session.attendance_type;
+        tag.textContent = session.attendance_type;
+        tag.className   = 'rc-type-tag ' + session.attendance_type;
     } else {
-        typeBadge.textContent = 'SCAN';
-        typeBadge.className   = 'card-type-badge';
+        tag.textContent = 'SCAN';
+        tag.className   = 'rc-type-tag default';
     }
 
-    // Result badge
-    const rb = document.getElementById('result-badge');
-    const labels = { success: '✔ RECORDED', error: '✖ FAILED', warning: '⚠ DUPLICATE' };
-    rb.textContent = labels[badgeType] || '—';
-    rb.className   = 'result-badge ' + badgeType;
-
-    // Show card with animation
     const wrap = document.getElementById('card-wrap');
     wrap.style.display = 'block';
-    // Force reflow to replay animation
-    void wrap.offsetWidth;
     wrap.style.animation = 'none';
-    wrap.offsetWidth;
+    void wrap.offsetWidth;
     wrap.style.animation = '';
 }
 
@@ -662,12 +772,8 @@ function hideCard() {
     document.getElementById('card-wrap').style.display = 'none';
 }
 
-function escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
