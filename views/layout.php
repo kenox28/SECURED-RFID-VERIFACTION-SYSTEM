@@ -526,7 +526,7 @@ function render_header(string $page_title = 'RFID Verification System'): void
                         <i class="bi bi-broadcast-pin"></i>
                     </div>
                     <div class="logo-text">
-                        <h2>RFID System</h2>
+                        <h2>Secured ID System</h2>
                         <p>Verification Platform</p>
                     </div>
                 </div>
@@ -604,6 +604,11 @@ function render_header(string $page_title = 'RFID Verification System'): void
                     <a href="/views/activity_logs.php" class="nav-item <?= $currentPage === 'activity_logs.php' ? 'active' : ''; ?>">
                         <i class="bi bi-activity"></i>
                         <span>Activity Logs</span>
+                    </a>
+
+                    <a href="/scanner/scan.php" class="nav-item <?= $currentPage === 'dashboard.php' ? 'active' : ''; ?>">
+                        <i class="bi bi-grid"></i>
+                        <span>Scanner</span>
                     </a>
                 </div>
                 <?php endif; ?>

@@ -7,6 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/../config/database.php';
 
+
 function ensure_user_session(): void
 {
     if (!isset($_SESSION['user_id'])) {

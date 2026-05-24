@@ -367,7 +367,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </svg>
             </div>
             <h1>Admin Login</h1>
-            <p>RFID Student Management System</p>
+            <p>Secured Student Management System</p>
         </div>
 
         <?php if (!empty($errors)): ?>

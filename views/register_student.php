@@ -36,6 +36,9 @@ if (!is_super_admin()) {
     $selectedDepartmentId = $currentDepartmentId;
 }
 
+// Track whether registration succeeded to clear fields
+$registrationSuccess = false;
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     $student_id     = trim($_POST['student_id'] ?? '');
@@ -90,6 +93,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (empty($email))          $errors[] = 'Email is required';
     if (empty($address))        $errors[] = 'Address is required';
     if (empty($rfid_uid))       $errors[] = 'RFID UID is required';
+
+    // Validate name fields — letters, spaces, hyphens, and periods only
+    if (!empty($first_name) && !preg_match("/^[a-zA-Z\s\-\.]+$/", $first_name)) {
+        $errors[] = 'First name must contain letters only';
+    }
+    if (!empty($last_name) && !preg_match("/^[a-zA-Z\s\-\.]+$/", $last_name)) {
+        $errors[] = 'Last name must contain letters only';
+    }
+    if (!empty($middle_name) && !preg_match("/^[a-zA-Z\s\-\.]+$/", $middle_name)) {
+        $errors[] = 'Middle name must contain letters only';
+    }
+
+    // Validate contact number — exactly 11 digits
+    if (!empty($contact_number)) {
+        if (!preg_match('/^\d{11}$/', $contact_number)) {
+            $errors[] = 'Contact number must be exactly 11 digits (numbers only)';
+        }
+    }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Invalid email format';
@@ -158,6 +179,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             );
 
             $success = 'Student registered successfully!';
+            $registrationSuccess = true;
+
+            // Reset POST data so all fields appear empty
+            $_POST = [];
+
+            // Reset department selection for super admin
+            $selectedDepartmentId = null;
 
         } catch (PDOException $e) {
             $errors[] = 'Database error: ' . $e->getMessage();
@@ -359,6 +387,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         background: #ea7b00;
         transform: translateY(-1px);
     }
+
+    .field-hint {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: -0.25rem;
+    }
 </style>
 
 <div class="register-wrap">
@@ -407,7 +441,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="rfid_uid"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['rfid_uid'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['rfid_uid'] ?? '') ?>"
                                 required
                             >
                         </div>
@@ -421,7 +455,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="student_id"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['student_id'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['student_id'] ?? '') ?>"
                                 required
                             >
                         </div>
@@ -435,7 +469,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="first_name"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['first_name'] ?? '') ?>"
+                                pattern="[a-zA-Z\s\-\.]+"
+                                title="Letters only (spaces, hyphens, and periods allowed)"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z\s\-\.]/g, '')"
                                 required
                             >
                         </div>
@@ -449,7 +486,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="middle_name"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['middle_name'] ?? '') ?>"
+                                pattern="[a-zA-Z\s\-\.]+"
+                                title="Letters only (spaces, hyphens, and periods allowed)"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z\s\-\.]/g, '')"
                             >
                         </div>
                     </div>
@@ -462,7 +502,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="last_name"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['last_name'] ?? '') ?>"
+                                pattern="[a-zA-Z\s\-\.]+"
+                                title="Letters only (spaces, hyphens, and periods allowed)"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z\s\-\.]/g, '')"
                                 required
                             >
                         </div>
@@ -480,7 +523,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                     <?php foreach ($departments as $dept): ?>
                                         <option
                                             value="<?= $dept['id'] ?>"
-                                            <?= ($selectedDepartmentId == $dept['id']) ? 'selected' : '' ?>
+                                            <?= (!$registrationSuccess && $selectedDepartmentId == $dept['id']) ? 'selected' : '' ?>
                                         >
                                             <?= htmlspecialchars($dept['department_name']) ?>
                                         </option>
@@ -518,10 +561,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             <label class="form-label">Year Level *</label>
                             <select name="year_level" class="form-select" required>
                                 <option value="">Select Year</option>
-                                <option value="1st Year" <?= (($_POST['year_level'] ?? '') == '1st Year') ? 'selected' : '' ?>>1st Year</option>
-                                <option value="2nd Year" <?= (($_POST['year_level'] ?? '') == '2nd Year') ? 'selected' : '' ?>>2nd Year</option>
-                                <option value="3rd Year" <?= (($_POST['year_level'] ?? '') == '3rd Year') ? 'selected' : '' ?>>3rd Year</option>
-                                <option value="4th Year" <?= (($_POST['year_level'] ?? '') == '4th Year') ? 'selected' : '' ?>>4th Year</option>
+                                <option value="1st Year" <?= (!$registrationSuccess && ($_POST['year_level'] ?? '') == '1st Year') ? 'selected' : '' ?>>1st Year</option>
+                                <option value="2nd Year" <?= (!$registrationSuccess && ($_POST['year_level'] ?? '') == '2nd Year') ? 'selected' : '' ?>>2nd Year</option>
+                                <option value="3rd Year" <?= (!$registrationSuccess && ($_POST['year_level'] ?? '') == '3rd Year') ? 'selected' : '' ?>>3rd Year</option>
+                                <option value="4th Year" <?= (!$registrationSuccess && ($_POST['year_level'] ?? '') == '4th Year') ? 'selected' : '' ?>>4th Year</option>
                             </select>
                         </div>
                     </div>
@@ -534,7 +577,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="section"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['section'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['section'] ?? '') ?>"
                                 required
                             >
                         </div>
@@ -548,9 +591,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="text"
                                 name="contact_number"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['contact_number'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['contact_number'] ?? '') ?>"
+                                maxlength="11"
+                                pattern="\d{11}"
+                                title="Contact number must be exactly 11 digits"
+                                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 11)"
+                                inputmode="numeric"
+                                placeholder="e.g. 09123456789"
                                 required
                             >
+                            <span class="field-hint">11 digits, numbers only</span>
                         </div>
                     </div>
 
@@ -562,7 +612,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 type="email"
                                 name="email"
                                 class="form-input"
-                                value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
+                                value="<?= $registrationSuccess ? '' : htmlspecialchars($_POST['email'] ?? '') ?>"
                                 required
                             >
                         </div>
@@ -576,7 +626,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 name="address"
                                 class="form-textarea"
                                 required
-                            ><?= htmlspecialchars($_POST['address'] ?? '') ?></textarea>
+                            ><?= $registrationSuccess ? '' : htmlspecialchars($_POST['address'] ?? '') ?></textarea>
                         </div>
                     </div>
 
@@ -602,8 +652,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <div class="form-group">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-select">
-                                <option value="Active"   <?= (($_POST['status'] ?? 'Active') == 'Active')   ? 'selected' : '' ?>>Active</option>
-                                <option value="Inactive" <?= (($_POST['status'] ?? 'Active') == 'Inactive') ? 'selected' : '' ?>>Inactive</option>
+                                <option value="Active"   <?= (!$registrationSuccess && ($_POST['status'] ?? 'Active') == 'Active')   ? 'selected' : '' ?>>Active</option>
+                                <option value="Inactive" <?= (!$registrationSuccess && ($_POST['status'] ?? 'Active') == 'Inactive') ? 'selected' : '' ?>>Inactive</option>
                             </select>
                         </div>
                     </div>

@@ -51,7 +51,6 @@ try {
             overflow-x: hidden;
         }
 
-        /* subtle dot grid */
         body::before {
             content: '';
             position: fixed; inset: 0;
@@ -61,7 +60,6 @@ try {
             z-index: 0;
         }
 
-        /* warm glow blob */
         body::after {
             content: '';
             position: fixed;
@@ -89,11 +87,7 @@ try {
             justify-content: space-between;
         }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+        .brand { display: flex; align-items: center; gap: 10px; }
 
         .brand-icon {
             width: 36px; height: 36px;
@@ -293,7 +287,6 @@ try {
             letter-spacing: 0.05em;
         }
 
-        /* progress track */
         .progress-track {
             height: 2px;
             background: var(--border);
@@ -320,7 +313,6 @@ try {
             100% { transform: translateX(100%); }
         }
 
-        /* status */
         #status-msg {
             margin-top: 14px;
             text-align: center;
@@ -354,7 +346,6 @@ try {
             overflow: hidden;
         }
 
-        /* coloured top line */
         .result-card.success { border-top: 2px solid var(--green); }
         .result-card.error   { border-top: 2px solid var(--red); }
         .result-card.warning { border-top: 2px solid var(--yellow); }
@@ -409,13 +400,17 @@ try {
             align-items: flex-start;
         }
 
+        /* ✅ FIX: Photo styles — ensure image fills the frame correctly */
         .rc-photo {
-            width: 72px; height: 86px;
+            width: 72px;
+            height: 86px;
             border-radius: 10px;
             object-fit: cover;
-            border: 1px solid var(--border-hi);
+            object-position: center top; /* favour face in portrait photos */
+            border: 1.5px solid var(--border-hi);
             flex-shrink: 0;
             background: var(--card);
+            display: block;
         }
 
         .rc-photo-placeholder {
@@ -476,7 +471,6 @@ try {
             display: block;
         }
 
-        /* session type tag in card */
         .rc-type-tag {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.68rem;
@@ -486,11 +480,10 @@ try {
             letter-spacing: 0.04em;
         }
 
-        .rc-type-tag.IN  { background: var(--green-dim); color: var(--green); }
-        .rc-type-tag.OUT { background: var(--red-dim);   color: var(--red); }
+        .rc-type-tag.IN      { background: var(--green-dim); color: var(--green); }
+        .rc-type-tag.OUT     { background: var(--red-dim);   color: var(--red); }
         .rc-type-tag.default { background: var(--accent-dim); color: var(--accent); }
 
-        /* ── REFOCUS ── */
         .refocus {
             text-align: center;
             font-family: 'JetBrains Mono', monospace;
@@ -525,7 +518,9 @@ try {
 
     <!-- Clock -->
     <div class="clock-card">
-        <div id="clock"><span id="h">00</span><span class="colon">:</span><span id="m">00</span><span class="colon">:</span><span id="s">00</span></div>
+        <div id="clock">
+            <span id="h">00</span><span class="colon">:</span><span id="m">00</span><span class="colon">:</span><span id="s">00</span>
+        </div>
         <div id="date-display">--</div>
     </div>
 
@@ -628,7 +623,7 @@ function refocus() { rfidInput.focus(); }
 document.addEventListener('click', e => { if (e.target.id !== 'rfid_input') refocus(); });
 setInterval(refocus, 3000);
 
-// ── Process URL ──
+// ── Process URL (same directory as scan.php) ──
 const PROCESS_URL = (() => {
     const loc = window.location.pathname;
     return loc.substring(0, loc.lastIndexOf('/') + 1) + 'process_scan.php';
@@ -720,38 +715,46 @@ function setScanActive(on) {
 }
 
 function showCard(student, session, type) {
-    // photo
+    // ✅ FIX: Render the actual student photo; fall back to placeholder only if no URL or image fails to load
     const pw = document.getElementById('rc-photo-wrap');
-    if (student.photo_url) {
-        pw.innerHTML = `<img class="rc-photo" src="${esc(student.photo_url)}" alt="Photo" onerror="this.outerHTML='<div class=\\'rc-photo-placeholder\\'>👤</div>'">`;
+
+    if (student.photo_url && student.photo_url.trim() !== '') {
+        // Build img with onerror fallback that swaps it back to the placeholder
+        const img = document.createElement('img');
+        img.className = 'rc-photo';
+        img.alt       = 'Student Photo';
+        img.src       = student.photo_url;
+        img.onerror   = function() {
+            // Image failed (wrong path, file missing, etc.) — show placeholder
+            pw.innerHTML = '<div class="rc-photo-placeholder">👤</div>';
+        };
+        pw.innerHTML = '';
+        pw.appendChild(img);
     } else {
         pw.innerHTML = '<div class="rc-photo-placeholder">👤</div>';
     }
 
-    document.getElementById('rc-name').textContent    = student.full_name;
-    document.getElementById('rc-id').textContent      = student.student_id;
-    document.getElementById('rc-course').textContent  = student.course;
+    document.getElementById('rc-name').textContent     = student.full_name;
+    document.getElementById('rc-id').textContent       = student.student_id;
+    document.getElementById('rc-course').textContent   = student.course;
     document.getElementById('rc-year-sec').textContent = student.year_level + ' · ' + student.section;
-    document.getElementById('rc-email').textContent   = student.email || '—';
-    document.getElementById('rc-contact').textContent = student.contact_number || '—';
-    document.getElementById('rc-time').textContent    = new Date().toLocaleTimeString('en-US', { hour12: false });
+    document.getElementById('rc-email').textContent    = student.email    || '—';
+    document.getElementById('rc-contact').textContent  = student.contact_number || '—';
+    document.getElementById('rc-time').textContent     = new Date().toLocaleTimeString('en-US', { hour12: false });
 
-    // status icon + text
-    const icons   = { success: '✓', error: '✕', warning: '⚠' };
-    const labels  = { success: 'RECORDED', error: 'FAILED', warning: 'DUPLICATE' };
+    const icons  = { success: '✓', error: '✕', warning: '⚠' };
+    const labels = { success: 'RECORDED', error: 'FAILED', warning: 'DUPLICATE' };
 
     const icon = document.getElementById('rc-icon');
-    icon.textContent  = icons[type] || '—';
-    icon.className    = 'rc-status-icon ' + type;
+    icon.textContent = icons[type] || '—';
+    icon.className   = 'rc-status-icon ' + type;
 
     const stxt = document.getElementById('rc-status-text');
     stxt.textContent = labels[type] || '—';
     stxt.className   = 'rc-status-text ' + type;
 
-    // result card border colour
     document.getElementById('result-card').className = 'result-card ' + type;
 
-    // session type tag
     const tag = document.getElementById('rc-type-tag');
     if (session && session.attendance_type) {
         tag.textContent = session.attendance_type;
@@ -762,7 +765,7 @@ function showCard(student, session, type) {
     }
 
     const wrap = document.getElementById('card-wrap');
-    wrap.style.display = 'block';
+    wrap.style.display  = 'block';
     wrap.style.animation = 'none';
     void wrap.offsetWidth;
     wrap.style.animation = '';
@@ -773,7 +776,11 @@ function hideCard() {
 }
 
 function esc(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
 }
 </script>
 </body>
