@@ -12,23 +12,23 @@ $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $identifier = trim($_POST['identifier'] ?? '');
-    $password   = $_POST['password'] ?? '';
 
     if ($identifier === '') {
         $errors[] = 'Student ID or email is required.';
     }
 
     if (empty($errors)) {
-        $result = student_login($identifier, $password);
-        if ($result['success']) {
-            if (isset($_SESSION['student_pending_activation'])) {
-                header('Location: student_otp.php');
-                exit();
+        $student = find_student_by_identifier($identifier);
+        if (!$student || $student['status'] !== 'Active') {
+            $errors[] = 'Invalid student ID, email, or account not active.';
+        } else {
+            $result = send_student_password_reset_otp($student);
+            if ($result['success']) {
+                $success = $result['message'];
+            } else {
+                $errors[] = $result['message'];
             }
-            header('Location: views/user/dashboard.php');
-            exit();
         }
-        $errors[] = $result['message'];
     }
 }
 ?>
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Login — RFID System</title>
+    <title>Forgot Password — RFID System</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800|sora:400,500,600&display=swap" rel="stylesheet">
     <style>
@@ -61,6 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             --red-50:       #fef2f2;
             --red-200:      #fecaca;
             --red-600:      #dc2626;
+            --green-50:     #ecfdf5;
+            --green-200:    #a7f3d0;
+            --green-700:    #047857;
         }
 
         body {
@@ -111,11 +114,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── HEADER ── */
-        .card-header {
-            text-align: center;
-            margin-bottom: 2rem;
+        /* ── BACK LINK ── */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .8rem;
+            font-weight: 500;
+            color: var(--slate-500);
+            text-decoration: none;
+            margin-bottom: 1.75rem;
+            transition: color .15s;
         }
+
+        .back-link svg { width: 14px; height: 14px; stroke: currentColor; }
+        .back-link:hover { color: var(--accent); }
+
+        /* ── HEADER ── */
+        .card-header { text-align: center; margin-bottom: 2rem; }
 
         .icon-wrap {
             display: inline-flex;
@@ -123,15 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             width: 64px; height: 64px;
             border-radius: 1rem;
-            background: linear-gradient(135deg, #fb8500, #ffb703);
+            background: #fff7ed;
+            border: 1.5px solid #fed7aa;
             margin-bottom: 1.25rem;
-            box-shadow: 0 8px 20px rgba(251,133,0,0.25);
         }
 
-        .icon-wrap svg {
-            width: 30px; height: 30px;
-            stroke: #fff;
-        }
+        .icon-wrap svg { width: 30px; height: 30px; stroke: var(--accent); }
 
         .card-header h1 {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -139,50 +152,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-weight: 700;
             color: var(--slate-900);
             letter-spacing: -0.02em;
-            margin-bottom: 0.375rem;
+            margin-bottom: .375rem;
         }
 
-        .card-header p {
-            font-size: 0.875rem;
-            color: var(--slate-400);
-        }
+        .card-header p { font-size: .875rem; color: var(--slate-400); line-height: 1.6; }
 
-        /* ── ROLE TABS ── */
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 999px;
-            padding: 4px 12px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            color: var(--accent);
-            letter-spacing: .04em;
-            text-transform: uppercase;
-            margin-top: .5rem;
-        }
-
-        .role-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: var(--accent);
-            animation: blink 2s ease-in-out infinite;
-        }
-
-        @keyframes blink {
-            0%,100% { opacity:1; }
-            50%      { opacity:.3; }
-        }
-
-        /* ── ALERT ── */
+        /* ── ALERTS ── */
         .alert {
-            background: var(--red-50);
-            border: 1px solid var(--red-200);
             border-radius: .75rem;
             padding: .875rem 1rem;
             margin-bottom: 1.5rem;
+            border: 1px solid;
         }
 
         .alert ul { list-style: none; display: flex; flex-direction: column; gap: .25rem; }
@@ -190,7 +170,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .alert li {
             font-size: .8125rem;
             font-weight: 500;
-            color: var(--red-600);
             display: flex;
             align-items: center;
             gap: .5rem;
@@ -201,9 +180,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: inline-block;
             width: 6px; height: 6px;
             border-radius: 50%;
-            background: var(--red-600);
             flex-shrink: 0;
         }
+
+        .alert-error { background: var(--red-50); border-color: var(--red-200); color: var(--red-600); }
+        .alert-error li::before { background: var(--red-600); }
+
+        .alert-success { background: var(--green-50); border-color: var(--green-200); color: var(--green-700); }
+        .alert-success p { font-size: .8125rem; font-weight: 500; }
+
+        /* ── SUCCESS CTA ── */
+        .success-cta {
+            margin-top: .75rem;
+            padding-top: .75rem;
+            border-top: 1px solid var(--green-200);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            flex-wrap: wrap;
+        }
+
+        .success-cta span { font-size: .78rem; color: var(--green-700); }
+
+        .btn-success {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: var(--green-700);
+            color: #fff;
+            text-decoration: none;
+            border-radius: .6rem;
+            padding: .45rem 1rem;
+            font-size: .8rem;
+            font-weight: 600;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            transition: background .15s;
+            white-space: nowrap;
+        }
+
+        .btn-success:hover { background: #065f46; }
 
         /* ── FORM ── */
         .form-group { margin-bottom: 1.25rem; }
@@ -216,13 +232,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-bottom: .5rem;
         }
 
-        .label-hint {
-            font-size: .73rem;
-            font-weight: 400;
-            color: var(--slate-400);
-            margin-left: .35rem;
-        }
-
         .input-wrap { position: relative; }
 
         .input-wrap .field-icon {
@@ -233,8 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             pointer-events: none;
         }
 
-        input[type="text"],
-        input[type="password"] {
+        input[type="text"] {
             width: 100%;
             padding: .6875rem .875rem .6875rem 2.5rem;
             border: 1px solid var(--slate-200);
@@ -255,22 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         input::placeholder { color: var(--slate-300); }
 
-        .toggle-password {
-            position: absolute;
-            right: .875rem; top: 50%; transform: translateY(-50%);
-            background: none; border: none; cursor: pointer;
-            padding: 0; display: flex; align-items: center;
-        }
-
-        .toggle-password svg {
-            width: 16px; height: 16px;
-            stroke: var(--slate-400);
-            transition: stroke .15s;
-        }
-
-        .toggle-password:hover svg { stroke: var(--slate-600); }
-
-        /* ── SUBMIT ── */
+        /* ── BUTTON ── */
         .btn-primary {
             width: 100%;
             padding: .75rem 1.5rem;
@@ -298,9 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .links-row {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: .5rem;
+            justify-content: center;
             margin-top: 1.25rem;
         }
 
@@ -315,6 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: color .15s;
         }
 
+        .text-link svg { width: 13px; height: 13px; stroke: currentColor; }
         .text-link:hover { color: var(--accent); }
 
         /* ── DIVIDER ── */
@@ -332,9 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /* ── FOOTER ── */
         .card-footer { text-align: center; margin-top: 1.25rem; }
-
         .card-footer p { font-size: .75rem; color: var(--slate-400); }
-
         .card-footer strong { color: var(--slate-600); font-weight: 600; }
     </style>
 </head>
@@ -342,21 +332,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="card">
 
+    <a href="student_login.php" class="back-link">
+        <svg fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        Back to login
+    </a>
+
     <div class="card-header">
         <div class="icon-wrap">
-            <!-- Student cap icon -->
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
-                    d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
             </svg>
         </div>
-        <h1>Student Portal</h1>
-        <p>RFID Attendance Management System</p>
-        <div class="role-badge"><div class="role-dot"></div> Student Access</div>
+        <h1>Forgot Password</h1>
+        <p>Enter your Student ID or registered email and we'll send a reset code to your inbox.</p>
     </div>
 
     <?php if (!empty($errors)): ?>
-        <div class="alert">
+        <div class="alert alert-error">
             <ul>
                 <?php foreach ($errors as $e): ?>
                     <li><?= htmlspecialchars($e) ?></li>
@@ -365,8 +360,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     <?php endif; ?>
 
-    <form method="POST">
+    <?php if ($success !== ''): ?>
+        <div class="alert alert-success">
+            <p><?= htmlspecialchars($success) ?></p>
+            <div class="success-cta">
+                <span>Check your inbox and enter the code.</span>
+                <a href="student_reset_password.php" class="btn-success">
+                    Enter Code
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    <?php endif; ?>
 
+    <form method="POST">
         <div class="form-group">
             <label for="identifier">Student ID or Email</label>
             <div class="input-wrap">
@@ -380,80 +389,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     name="identifier"
                     placeholder="e.g. 2024-00001 or email"
                     value="<?= htmlspecialchars($_POST['identifier'] ?? '') ?>"
-                    autocomplete="username"
                     required
                 >
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="password">
-                Password
-                <span class="label-hint">Leave blank for first-time login</span>
-            </label>
-            <div class="input-wrap">
-                <svg class="field-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                </svg>
-                <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    placeholder="Enter your password"
-                    autocomplete="current-password"
-                >
-                <button type="button" class="toggle-password" onclick="togglePassword()" title="Show/hide password">
-                    <svg id="eye-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-
-        <button type="submit" class="btn-primary">Sign In</button>
-
+        <button type="submit" class="btn-primary">Send Reset Code</button>
     </form>
 
     <div class="links-row">
-        <a href="student_forgot_password.php" class="text-link">
-            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        <a href="student_login.php" class="text-link">
+            <svg fill="none" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
-            Forgot password?
-        </a>
-        <a href="login.php" class="text-link">
-            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
-            </svg>
-            Admin login
+            Remember your password? Sign in
         </a>
     </div>
 
     <div class="divider"><span>RFID System v1.0</span></div>
 
     <div class="card-footer">
-        <p>Authorized students only · <strong>Student Portal</strong></p>
+        <p>Reset codes expire in 10 minutes · <strong>Check spam if not received</strong></p>
     </div>
 
 </div>
-
-<script>
-function togglePassword() {
-    const input = document.getElementById('password');
-    const icon  = document.getElementById('eye-icon');
-    const show  = input.type === 'password';
-    input.type  = show ? 'text' : 'password';
-    icon.innerHTML = show
-        ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`
-        : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
-}
-</script>
 
 </body>
 </html>
